@@ -2081,6 +2081,20 @@ async function trWebhook(request, env, url) {
 
   const given = String(url.searchParams.get('hash') || '').trim();
   const salt = String(url.searchParams.get('enc_salt') || '').trim();
+
+  /* 面板上的 TEST 按钮只探连通性，不带 hash 也不带 enc_salt。
+     这种请求回 200 让它显示「通」，但一个业务动作都不做（不冲正、不封人），
+     真正的推送必然带签名，所以这里放宽不构成口子。 */
+  if (!given && !salt) {
+    await hookLog(env, {
+      provider: 'theoremreach', method: 'WEBHOOK',
+      params: JSON.stringify({ ping: 1 }),
+      result: '200 ping',
+      ip: request.headers.get('CF-Connecting-IP') || ''
+    });
+    return mtxText('ok ping', 200);
+  }
+
   if (!given) return mtxText('missing hash', 400);
   if (!salt) return mtxText('missing enc_salt', 400);
 
