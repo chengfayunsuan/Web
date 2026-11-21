@@ -2137,12 +2137,20 @@ async function trWebhook(request, env, url) {
   if (type === 'reversal') {
     const list = Array.isArray(d.reversed_transactions) ? d.reversed_transactions : [];
     let done = 0;
+    let skip = 0;
     for (const t of list) {
       const tid = String((t && t.transaction_id) || '').trim();
-      if (!tid) continue;
+      if (!tid) { skip++; continue; }
       /* 冲正用哪套 kind，看原单是不是任务墙的：offer_id 有值就是任务 */
       const row = await env.DB.prepare('SELECT offer_id FROM mo_task WHERE transaction_id = ?')
         .bind(tid).first();
+      /* 面板 Webhook 的 TEST 推的是示例事件（user_id=123、transaction_id="123"、金额 0）。
+         库里查不到这单、金额又是 0，就是幽灵单据：不建占位、不计入 done，
+         否则每点一次 TEST 都在 mo_task 里留一条垃圾。
+         真实冲正金额一定 > 0，所以这道判据不会误伤；
+         而「金额 > 0 但原单还没到」的乱序情况仍走建占位防迟到发钱。 */
+      const amt = Math.abs(Number((t && t.amount_in_dollars) || 0));
+      if (!row && !(amt > 0)) { skip++; continue; }
       const isOffer = !!(row && row.offer_id);
       const r = await mtxApply(env, {
         uid: uid,
@@ -2155,7 +2163,7 @@ async function trWebhook(request, env, url) {
       });
       if (r && r.ok) done++;
     }
-    result = 'reversal ' + done + '/' + list.length;
+    result = 'reversal ' + done + '/' + list.length + (skip ? ' skip ' + skip : '');
   } else if (type === 'ban') {
     result = 'ban ' + (await trBanByProvider(env, uid, String(d.ban_reason || '未说明原因')));
   } else {
