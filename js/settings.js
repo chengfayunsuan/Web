@@ -988,6 +988,64 @@
       });
   });
 
+  /* ---------- 问卷匹配资料：年龄 / 性别 / 邮编 ----------
+     这三项只给问卷服务商做匹配用，站内不展示。进页面先回填，改完直接存。 */
+  (function () {
+    var form = $('formProfile');
+    if (!form) return;
+
+    fetch('/api/user/tr-profile', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        if (d.age) $('pfAge').value = String(d.age);
+        $('pfGender').value = d.gender || '';
+        $('pfPostal').value = d.postal || '';
+      })
+      .catch(function () {});
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var raw = $('pfAge').value.trim();
+      var age = raw === '' ? 0 : Number(raw);
+      if (raw !== '' && (!isFinite(age) || age < 1 || age > 99 || age % 1 !== 0)) {
+        say(T('年龄填 1 到 99 之间的整数。', 'Age must be a whole number from 1 to 99.'));
+        $('pfAge').focus();
+        return;
+      }
+
+      var btn = form.querySelector('button[type="submit"]');
+      var label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = T('保存中', 'Saving…');
+
+      fetch('/api/user/tr-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age: age,
+          gender: $('pfGender').value,
+          postal: $('pfPostal').value
+        })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, body: d }; }); })
+        .then(function (r) {
+          if (r.ok && r.body && r.body.ok) {
+            say(T('问卷资料已保存', 'Survey profile saved'));
+            return;
+          }
+          say((r.body && r.body.error) === 'bad_age'
+            ? T('年龄填 1 到 99 之间的整数。', 'Age must be 1 to 99.')
+            : T('保存失败，请稍后重试。', 'Save failed. Try again.'));
+        })
+        .catch(function () { say(T('网络连接失败，未保存。', 'Network error. Nothing saved.')); })
+        .then(function () {
+          btn.disabled = false;
+          btn.textContent = label;
+        });
+    });
+  })();
+
   /* ---------- 账户概览右侧：查找用户 ---------- */
 
   var findForm = $('findForm');

@@ -41,6 +41,8 @@ export async function onRequest(context) {
     if (path === 'user/profile' && request.method === 'PATCH') return await updateProfile(request, env);
     if (path === 'user/email' && request.method === 'POST') return await updateEmail(request, env);
     if (path === 'user/password' && request.method === 'POST') return await updatePassword(request, env);
+    if (path === 'user/tr-profile' && request.method === 'GET') return await trProfileGet(request, env);
+    if (path === 'user/tr-profile' && request.method === 'POST') return await trProfileSet(request, env);
     if (path === 'user/password/code' && request.method === 'POST') return await passwordSendCode(request, env);
     if (path === 'user/email/code' && request.method === 'POST') return await emailSendCode(request, env);
     if (path === 'user/email/verify' && request.method === 'POST') return await emailVerify(request, env);
@@ -72,6 +74,7 @@ export async function onRequest(context) {
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
     if (path === 'theoremreach/go' && request.method === 'GET') return await trGo(request, env);
+    if (path === 'theoremreach/webhook' && request.method === 'POST') return await trWebhook(request, env, url);
     if (path.indexOf('theoremreach/postback') === 0) return await trPostback(request, env, url, path);
     if (path.indexOf('admin/') === 0) return await adminApi(request, env, url, path);
     return json({ ok: false, error: 'not_found' }, 404);
@@ -1849,6 +1852,89 @@ async function trSignEntry(c, s, uid) {
   return u + '&hash=' + (await trHashOf(c.secretKey, u));
 }
 
+/* 问卷匹配资料：年龄 / 性别 / 邮编。只存站内，拉问卷列表时才同步给 TR，
+   站内任何地方都不展示。年龄留空就是「没填」，存空串而不是 0 —— 0 岁会被对方当脏数据。 */
+async function trProfileGet(request, env) {
+  const session = await currentSession(request, env);
+  if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
+
+  const r = await env.DB.prepare(
+    'SELECT tr_age, tr_gender, tr_postal FROM users WHERE id = ?'
+  ).bind(session.uid).first();
+
+  return json({
+    ok: true,
+    age: r && r.tr_age ? Number(r.tr_age) : 0,
+    gender: (r && r.tr_gender) || '',
+    postal: (r && r.tr_postal) || ''
+  });
+}
+
+async function trProfileSet(request, env) {
+  const session = await currentSession(request, env);
+  if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
+
+  const body = await readJson(request);
+  if (!body) return json({ ok: false, error: 'bad_request' }, 400);
+
+  const ageRaw = String(body.age == null ? '' : body.age).trim();
+  const age = ageRaw === '' ? 0 : Number(ageRaw);
+  if (ageRaw !== '' && (!Number.isInteger(age) || age < 1 || age > 99)) {
+    return json({ ok: false, error: 'bad_age' }, 400);
+  }
+
+  const g = String(body.gender || '').trim().toUpperCase();
+  const gender = (g === 'M' || g === 'F') ? g : '';
+  const postal = String(body.postal || '').trim().slice(0, 16);
+
+  await env.DB.prepare(
+    `UPDATE users SET tr_age = ?, tr_gender = ?, tr_postal = ?,
+       updated_at = datetime('now','+8 hours') WHERE id = ?`
+  ).bind(age ? String(age) : '', gender, postal, session.uid).run();
+
+  return json({ ok: true, age: age, gender: gender, postal: postal });
+}
+
+/* 把站内填的年龄 / 性别 / 邮编预填给 TR。
+ * 官方原话：拉问卷列表前先注册这三项，用户进卷就不用再被问一遍，转化率和收入都更好。
+ * 只发手里真有的项；一项都没有就整段跳过，别拿空值去污染它的用户档案。
+ * POST 的签名是「URL + body」一起算，跟 GET 不一样，这一点最容易签错。 */
+async function trSyncProfile(c, uid, row, ip, cc) {
+  if (!row) return false;
+  const age = Number(row.tr_age) || 0;
+  const g = String(row.tr_gender || '').trim().toUpperCase();
+  const postal = String(row.tr_postal || '').trim();
+  if (!age && !g && !postal) return false;
+
+  const attrs = {};
+  if (postal) attrs.postal_code = postal;
+  const facets = {};
+  if (age >= 1 && age <= 99) facets['1'] = [age];
+  if (g === 'M' || g === 'MALE' || g === '男') facets['2'] = [100];
+  else if (g === 'F' || g === 'FEMALE' || g === '女') facets['2'] = [101];
+  if (Object.keys(facets).length) attrs.facet_hash = facets;
+
+  const payload = { user: { user_id: Number(uid), ip: ip, attributes: attrs } };
+  if (/^[A-Z]{2}$/.test(cc)) payload.user.country_code = cc;
+  const bodyStr = JSON.stringify(payload);
+
+  const base = 'https://api.theoremreach.com/api/publishers/v1/update_profile'
+    + '?api_key=' + encodeURIComponent(c.apiKey);
+  const hash = await trHashOf(c.secretKey, base + bodyStr);
+
+  const r = await fetch(base + '&hash=' + hash, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: bodyStr
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(function () { return ''; });
+    console.error('tr sync profile failed:', r.status, String(t).slice(0, 160));
+    return false;
+  }
+  return true;
+}
+
 async function trSurveyList(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -1864,6 +1950,16 @@ async function trSurveyList(request, env) {
   const cc = String(
     (request.cf && request.cf.country) || request.headers.get('CF-IPCountry') || ''
   ).toUpperCase();
+
+  /* 有资料就先喂给 TR，失败了也不挡拉列表这条路 */
+  try {
+    const me = await env.DB.prepare(
+      'SELECT tr_age, tr_gender, tr_postal FROM users WHERE id = ?'
+    ).bind(session.uid).first();
+    await trSyncProfile(c, session.uid, me, ip, cc);
+  } catch (e) {
+    console.error('tr sync profile threw:', e && e.message);
+  }
   const qs = [
     'api_key=' + encodeURIComponent(c.apiKey),
     'user_id=' + Number(session.uid),
@@ -1948,6 +2044,123 @@ async function trSurveyList(request, env) {
     /* demo / demoHidden 只用于排查：上游给了几份测试卷、其中几份被挡在门外 */
     demo: demoSeen, demoHidden: demoHidden
   });
+}
+
+/* ---------------- TheoremReach Webhook：售后事件（驳回 / 封禁） ----------------
+ *
+ * 和 reward callback 不是一条通道：那个是「用户刚赚到钱」的即时通知，
+ * 这个是事后通知 —— 卷后来被买方驳回（reversal）、用户被它封了（ban）。
+ * 面板里单独填 Webhook URL：https://chengfa.org/api/theoremreach/webhook
+ *
+ * 三条要留神的：
+ *   1. body 不参与签名，hash 只覆盖 URL（含 enc_salt），hash 拼最后
+ *   2. enc_salt 是事件唯一号，重发时不变 —— 幂等就靠它
+ *   3. 对方会重试一周、还可能乱序到达，处理逻辑必须扛得住重复
+ */
+async function trBanByProvider(env, uid, reason) {
+  const me = await env.DB.prepare('SELECT id, role, status FROM users WHERE id = ?').bind(uid).first();
+  if (!me) return 'no_user';
+  if (me.role === 'owner' || me.role === 'admin') return 'skip_privileged';
+  if (me.status === 'banned') return 'already';
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE users SET status = 'banned', ${lvSql(-8)}, updated_at = datetime('now','+8 hours') WHERE id = ?`
+    ).bind(uid),
+    env.DB.prepare(
+      `INSERT INTO user_bans (uid, from_status, to_status, reason, by_uid, by_role)
+       VALUES (?, ?, 'banned', ?, 0, 'theoremreach')`
+    ).bind(uid, me.status || 'active', '服务商封禁：' + reason)
+  ]);
+  return 'banned';
+}
+
+async function trWebhook(request, env, url) {
+  const c = trConf(env);
+  if (!c.live) return mtxText('not configured', 503);
+
+  const given = String(url.searchParams.get('hash') || '').trim();
+  const salt = String(url.searchParams.get('enc_salt') || '').trim();
+  if (!given) return mtxText('missing hash', 400);
+  if (!salt) return mtxText('missing enc_salt', 400);
+
+  const calc = await trHashOf(c.secretKey, trSignedUrl(url));
+  if (calc !== given) {
+    console.error('tr webhook bad hash');
+    await hookLog(env, {
+      provider: 'theoremreach', method: 'WEBHOOK',
+      params: JSON.stringify({ enc_salt: salt }),
+      result: '403 bad hash',
+      ip: request.headers.get('CF-Connecting-IP') || ''
+    });
+    return mtxText('bad hash', 403);
+  }
+
+  /* 同一个事件推两次：第二次直接认，不重复扣钱也不重复封人 */
+  const seen = await env.DB.prepare('SELECT id FROM hook_event WHERE enc_salt = ?')
+    .bind(salt).first();
+  if (seen) return mtxText('ok dup', 200);
+
+  let body = null;
+  try {
+    body = await request.clone().json();
+  } catch (e) {
+    /* 解析不了就让它重试，至少我们这边有日志可查 */
+    await hookLog(env, {
+      provider: 'theoremreach', method: 'WEBHOOK',
+      params: JSON.stringify({ enc_salt: salt }),
+      result: '400 bad body',
+      ip: request.headers.get('CF-Connecting-IP') || ''
+    });
+    return mtxText('bad body', 400);
+  }
+
+  const d = (body && body.data) || body || {};
+  const type = String(d.event_type || '').toLowerCase();
+  const uid = Number(d.user_id || 0);
+  let result = '';
+
+  if (type === 'reversal') {
+    const list = Array.isArray(d.reversed_transactions) ? d.reversed_transactions : [];
+    let done = 0;
+    for (const t of list) {
+      const tid = String((t && t.transaction_id) || '').trim();
+      if (!tid) continue;
+      /* 冲正用哪套 kind，看原单是不是任务墙的：offer_id 有值就是任务 */
+      const row = await env.DB.prepare('SELECT offer_id FROM mo_task WHERE transaction_id = ?')
+        .bind(tid).first();
+      const isOffer = !!(row && row.offer_id);
+      const r = await mtxApply(env, {
+        uid: uid,
+        tid: tid,
+        status: 2,
+        units: 0,
+        provider: 'theoremreach',
+        kindRev: isOffer ? 'theoremreach_offer_reverse' : 'theoremreach_reverse',
+        label: isOffer ? '任务墙' : '问卷墙'
+      });
+      if (r && r.ok) done++;
+    }
+    result = 'reversal ' + done + '/' + list.length;
+  } else if (type === 'ban') {
+    result = 'ban ' + (await trBanByProvider(env, uid, String(d.ban_reason || '未说明原因')));
+  } else {
+    result = 'ignored ' + (type || 'unknown');
+  }
+
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO hook_event (provider, enc_salt, event_type, uid, body, result)
+     VALUES ('theoremreach', ?, ?, ?, ?, ?)`
+  ).bind(salt, type, uid, JSON.stringify(body).slice(0, 2000), result).run();
+
+  await hookLog(env, {
+    provider: 'theoremreach', method: 'WEBHOOK',
+    params: JSON.stringify({ enc_salt: salt, event_type: type, uid: uid }),
+    result: '200 ' + result,
+    ip: request.headers.get('CF-Connecting-IP') || ''
+  });
+
+  return mtxText('ok', 200);
 }
 
 /* 自己的广告墙记录 */
@@ -4004,9 +4217,65 @@ async function adminApi(request, env, url, path) {
   if (path === 'admin/announcements/save' && request.method === 'POST') return await adminNoticeSave(request, env);
   if (path === 'admin/announcements/delete' && request.method === 'POST') return await adminNoticeDelete(request, env);
   if (path === 'admin/moonetix' && request.method === 'GET') return await adminMtxList(env, url);
+  if (path === 'admin/theoremreach/reports' && request.method === 'GET') return await adminTrReports(env, url);
   if (path === 'admin/traffic' && request.method === 'GET') return await adminTraffic(env, url);
   if (path === 'admin/traffic/track' && request.method === 'GET') return await adminIpTrack(env, url);
   return json({ ok: false, error: 'not_found' }, 404);
+}
+
+/* 后台看 TR 的真实收入：按天按国家拉官方报表，跟我们的入账对账用。
+   它自己按 app 分组返回，这里拍平成一行一条，前端好排表格。 */
+async function adminTrReports(env, url) {
+  const c = trConf(env);
+  if (!c.apiKey || !c.secretKey) return json({ ok: false, error: 'not_configured' }, 400);
+
+  const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days')) || 7));
+  const end = Math.floor(Date.now() / 1000);
+  const start = end - days * 86400;
+
+  const base = 'https://api.theoremreach.com/api/publishers/v1/reports/rollup_by_source_by_day_by_country'
+    + '?api_key=' + encodeURIComponent(c.apiKey)
+    + '&start_at=' + start + '&end_at=' + end;
+  const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
+
+  try {
+    const r = await fetch(signed, { headers: { Accept: 'application/json' } });
+    const text = await r.text();
+    if (!r.ok) {
+      console.error('tr reports upstream:', r.status, text.slice(0, 160));
+      return json({ ok: false, error: 'upstream', status: r.status, detail: text.slice(0, 200) }, 200);
+    }
+
+    const data = JSON.parse(text);
+    const rows = [];
+    (Array.isArray(data) ? data : []).forEach(function (app) {
+      (app.stats || []).forEach(function (s) {
+        rows.push({
+          app: app.name || '',
+          platform: app.platform || '',
+          at: s.at || '',
+          country: s.country || '',
+          revenue: Number(s.revenue) || 0,
+          conversions: Number(s.conversions) || 0,
+          impressions: Number(s.impressions) || 0
+        });
+      });
+    });
+    rows.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+
+    let sum = 0;
+    let conv = 0;
+    rows.forEach(function (x) { sum += x.revenue; conv += x.conversions; });
+
+    return json({
+      ok: true, days: days,
+      rows: rows.slice(0, 300),
+      summary: { revenue: Math.round(sum * 100) / 100, conversions: conv, count: rows.length }
+    });
+  } catch (e) {
+    console.error('tr reports failed:', e && e.message);
+    return json({ ok: false, error: 'upstream_unreachable' }, 200);
+  }
 }
 
 async function adminOverview(env) {

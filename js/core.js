@@ -417,6 +417,7 @@
     '/admin/items': { page: 'admin-items' },
     '/admin/messages': { page: 'admin-messages' },
     '/admin/moonetix': { page: 'admin-moonetix' },
+    '/admin/theoremreach': { page: 'admin-tr' },
     '/admin/traffic': { page: 'admin-traffic' }
   };
 

@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/css/relation.css?v=2">
   <link rel="stylesheet" href="/css/customize.css?v=12">
   <script src="/js/config.js?v=9"></script>
-  <script src="/js/core.js?v=38"></script>
+  <script src="/js/core.js?v=39"></script>
 </head>
 
 <body data-page="settings">
@@ -402,11 +402,50 @@
       </div>
     </section>
 
-    <!-- ============ 07 我的工单 ============ -->
-    <section class="blk" id="sec-ticket">
+    <!-- ============ 07 问卷匹配资料 ============ -->
+    <section class="blk" id="sec-profile">
       <div class="wrap">
         <div class="blk__h">
           <span class="blk__n">07</span>
+          <h2 class="blk__t">问卷匹配资料</h2>
+        </div>
+
+        <form class="edit" id="formProfile" novalidate>
+          <div class="edit__grid">
+            <div class="edit__f">
+              <label class="fld__l" for="pfAge">年龄</label>
+              <input class="fld" id="pfAge" name="age" type="number" min="1" max="99" placeholder="1 – 99">
+            </div>
+            <div class="edit__f">
+              <label class="fld__l" for="pfGender">性别</label>
+              <select class="fld" id="pfGender" name="gender">
+                <option value="">不填</option>
+                <option value="M">男</option>
+                <option value="F">女</option>
+              </select>
+            </div>
+            <div class="edit__f">
+              <label class="fld__l" for="pfPostal">邮编</label>
+              <input class="fld" id="pfPostal" name="postal" type="text" maxlength="16"
+                autocomplete="postal-code" placeholder="所在地区邮编">
+            </div>
+          </div>
+          <div class="edit__a">
+            <button class="btn btn--red" type="submit">保存</button>
+          </div>
+        </form>
+
+        <p class="blk__note">
+          这三项会同步给问卷服务商，进卷后就不用再被问一遍，能匹配到的问卷也更多。只用于问卷匹配，不在站内展示。
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ 08 我的工单 ============ -->
+    <section class="blk" id="sec-ticket">
+      <div class="wrap">
+        <div class="blk__h">
+          <span class="blk__n">08</span>
           <h2 class="blk__t">我的工单</h2>
         </div>
 
@@ -427,7 +466,7 @@
     <section class="blk" id="sec-keys">
       <div class="wrap">
         <div class="blk__h">
-          <span class="blk__n">08</span>
+          <span class="blk__n">09</span>
           <h2 class="blk__t">快捷导航</h2>
           <span class="cz-tag is-on" id="hkState">已开启</span>
         </div>
@@ -471,7 +510,7 @@
     <section class="blk" id="sec-theme">
       <div class="wrap">
         <div class="blk__h">
-          <span class="blk__n">09</span>
+          <span class="blk__n">10</span>
           <h2 class="blk__t">主题配色</h2>
           <span class="cz-tag" id="thState">默认配色</span>
         </div>
@@ -565,7 +604,7 @@
     </div>
   </footer>
 
-  <script src="/js/settings.js?v=24" defer></script>
+  <script src="/js/settings.js?v=25" defer></script>
   <script src="/js/personalize.js?v=8" defer></script>
 </body>
 

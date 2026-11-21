@@ -36,15 +36,33 @@
   var q = new URLSearchParams(location.search);
   var code = (q.get('term_reason') || '').toLowerCase();
   var num = q.get('term_reason_code') || '';
+  /* 名字全部对过 TR 的 term_reasons 接口（共 66 条），别再凭印象编 */
   var map = {
-    min_age: ["年龄不在这份卷的目标人群里", "Your age falls outside this survey's target group."],
-    max_age: ["年龄不在这份卷的目标人群里", "Your age falls outside this survey's target group."],
-    country_mismatch: ['地区不符，这份卷只收特定国家或地区的样本', 'This survey only accepts respondents from certain countries.'],
-    quality_score: ['答题质量没通过检测：答得太快、前后矛盾，或被判定敷衍', 'Your answers did not pass the quality check.'],
     banned: ['这个账号被服务商标记，暂时不能参与', 'This account is currently flagged by the provider.'],
+    min_age: ['年龄不在这份卷的目标人群里', 'Your age falls outside the target group for this survey.'],
+    country_mismatch: ['地区不符，这份卷只收特定国家或地区的样本', 'This survey only accepts respondents from certain countries.'],
+    country_inactive: ['你所在的地区暂时没有开放中的问卷', 'There are no live surveys for your region right now.'],
+    max_earnings_reached: ['本周期可赚的额度已经拿满了，下个周期再来', 'The earning cap for this period has been reached.'],
+    verification_required: ['这份卷要求先完成身份验证', 'This survey requires identity verification first.'],
+    overquota: ['名额刚好满了', 'The quota filled up.'],
     diy_duplicate_respondent: ['系统认为你之前已经答过这份调查', 'You have already taken this survey.'],
-    quota_full: ['名额刚好满了', 'The quota filled up.'],
-    security: ['被安全校验拦下', 'Blocked by a security check.']
+    diy_duplicate_respondent_ip: ['同一个网络下已经有人参与过这份调查', 'Someone on the same network already took this survey.'],
+    diy_duplicate_respondent_cookie: ['这台设备已经参与过这份调查', 'This device already took this survey.'],
+    quality_score: ['答题质量没通过检测：答得太快、前后矛盾，或被判定敷衍', 'Your answers did not pass the quality check.'],
+    research_defender_reject: ['被风控系统拒绝', 'Rejected by the fraud check.'],
+    research_defender_duplicate: ['风控系统判定为重复参与', 'Flagged as a duplicate response.'],
+    research_defender_threat_potential: ['网络环境被判定为高风险（代理、VPN 或机房 IP）', 'Your network was flagged as high risk.'],
+    research_defender_country_mismatch: ['资料里的地区和你的网络出口对不上', 'The region in your profile does not match your connection.'],
+    inelig_postal_code: ['邮编不在这份卷的范围内', 'Your postal code is outside the target area.'],
+    inelig_facet_mismatch: ['资料条件与这份卷的要求不符', 'Your profile does not match the requirements.'],
+    inelig_no_campaign: ['暂时没有适合你资料的问卷', 'No survey currently matches your profile.'],
+    ineligible: ['不符合这份卷的参与条件', 'You do not meet the requirements of this survey.'],
+    appuser_ineligible: ['不符合这份卷的参与条件', 'You do not meet the requirements of this survey.'],
+    client_survey_timed_out_on_redirect: ['答题超时了，重新进一次试试', 'The session timed out. Try entering again.'],
+    client_survey_abandoned: ['答题中途退出了', 'The survey was left before finishing.'],
+    abandoned: ['答题中途退出了', 'The survey was left before finishing.'],
+    provider_internal_error: ['服务商那边出了故障，跟你无关，换一份试试', 'A provider-side error, not your fault. Try another survey.'],
+    unexpected_error: ['服务商那边出了故障，跟你无关，换一份试试', 'A provider-side error, not your fault. Try another survey.']
   };
   if (!code && !num) return;
 

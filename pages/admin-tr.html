@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>问卷墙 · Chengfa后台</title>
+<meta name="description" content="Chengfa运营后台：TheoremReach 问卷墙的收入报表。">
+<meta name="theme-color" content="#1D52E2">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/style.css?v=16">
+<link rel="stylesheet" href="/css/home.css?v=17">
+<link rel="stylesheet" href="/css/page.css?v=11">
+<link rel="stylesheet" href="/css/admin.css?v=14">
+<script src="/js/config.js?v=9"></script>
+<script src="/js/core.js?v=39"></script>
+</head>
+<body data-page="admin-tr" data-accent="blue">
+
+<header class="nav">
+  <div class="wrap nav__in">
+    <a class="brand" href="/home">
+      <span class="brand__mark" aria-hidden="true"></span>
+      Chengfa
+      <span class="brand__en">CHENGFA</span>
+    </a>
+
+    <div class="hm-nav">
+      <span class="hm-nav__bal">
+        <b id="navBal">0</b><button class="hm-nav__cur" type="button" data-cur-toggle aria-label="切换显示币种" title="点击在乘法币与乘法刀之间切换"><span data-cur="code">XB</span></button>
+      </span>
+      <span class="hm-nav__sep" aria-hidden="true"></span>
+      <a class="hm-nav__name" id="navName" href="/home">我</a>
+      <button class="hm-nav__exit" id="logoutBtn" type="button">退出</button>
+    </div>
+  </div>
+</header>
+
+<nav class="dock" aria-label="后台目录">
+  <div class="wrap dock__in">
+    <a class="dock__i" href="/admin">
+      <span class="dock__n">01</span><span class="dock__t">后台概览</span>
+    </a>
+    <a class="dock__i" href="/admin/users">
+      <span class="dock__n">02</span><span class="dock__t">用户管理</span>
+    </a>
+    <a class="dock__i" href="/admin/withdrawals">
+      <span class="dock__n">03</span><span class="dock__t">提现审核</span>
+    </a>
+    <a class="dock__i" href="/admin/orders">
+      <span class="dock__n">04</span><span class="dock__t">兑换订单</span>
+    </a>
+    <a class="dock__i" href="/admin/tickets">
+      <span class="dock__n">05</span><span class="dock__t">工单</span>
+    </a>
+    <a class="dock__i" href="/admin/surveys">
+      <span class="dock__n">06</span><span class="dock__t">问卷管理</span>
+    </a>
+    <a class="dock__i" href="/admin/items">
+      <span class="dock__n">07</span><span class="dock__t">商品兑换</span>
+    </a>
+    <a class="dock__i" href="/admin/messages">
+      <span class="dock__n">08</span><span class="dock__t">公告</span>
+    </a>
+    <a class="dock__i" href="/admin/moonetix">
+      <span class="dock__n">09</span><span class="dock__t">广告墙</span>
+    </a>
+    <a class="dock__i" href="/admin/traffic">
+      <span class="dock__n">10</span><span class="dock__t">流量</span>
+    </a>
+    <a class="dock__i is-on" href="/admin/theoremreach" aria-current="page">
+      <span class="dock__n">11</span><span class="dock__t">问卷墙</span>
+    </a>
+  </div>
+</nav>
+
+<main id="app">
+  <section class="face">
+    <div class="wrap">
+      <div class="face__in">
+        <div class="face__id">
+          <div class="face__meta">
+            <span class="face__uid">ADMIN / 问卷墙</span>
+            <span class="adm-badge">THEOREMREACH</span>
+          </div>
+          <h1 class="face__name">问卷墙</h1>
+          <p class="face__sub">TheoremReach 官方收入报表 · 按天按国家</p>
+          <div class="face__foot">
+            <p class="adm-lead">这里的美元是服务商结算给我们的一手数据，跟站内入账不是同一个数：用户拿的是扣掉分成之后的 XD。两边对得上，说明账没算错；对不上，先查这个页面。</p>
+          </div>
+        </div>
+
+        <div class="face__bal">
+          <div class="face__bal-k">US REVENUE / 近 7 天收入</div>
+          <div class="face__bal-n" id="trRev">$0</div>
+          <div class="face__bal-f">共 <span id="trConv">0</span> 次转化 · <span id="trRows">0</span> 行记录</div>
+          <div class="face__acts"><a class="btn btn--ghost" href="/hall">去前台看</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="adm-sec">
+    <div class="wrap">
+      <div class="adm-panel">
+        <div class="adm-h">
+          <span class="adm-h__t">按天按国家</span>
+          <span class="adm-h__r">最近 7 天 · 只读</span>
+        </div>
+
+        <div class="adm-list">
+          <div class="adm-tr adm-tr--mtx adm-head">
+            <span>日期</span><span>应用 / 平台</span><span>国家</span><span>收入 USD</span><span>转化</span>
+          </div>
+          <div id="trRowsBox"></div>
+        </div>
+        <p class="adm-empty" id="trEmpty" hidden>近 7 天没有收入记录。账号过审、有真实流量之后这里才会出现数据。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="hm-toast" id="toast" role="status" aria-live="polite"></div>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__bar foot__bar--single">
+      <span>© 2026 Chengfa</span>
+      <span>运营后台 · 仅限站长与管理员</span>
+    </div>
+    <p class="foot__legal"><a href="/privacy">隐私政策</a> · <a href="/terms">用户协议</a> · <a href="/support">联系客服</a></p>
+  </div>
+</footer>
+
+<script src="/js/admin-tr.js?v=1" defer></script>
+</body>
+</html>

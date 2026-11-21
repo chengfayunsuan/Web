@@ -23,6 +23,7 @@
 /admin/items    /pages/admin-items    200
 /admin/messages /pages/admin-messages 200
 /admin/moonetix /pages/admin-moonetix 200
+/admin/theoremreach /pages/admin-tr 200
 /privacy /pages/privacy 200
 /terms   /pages/terms   200
 /notices /pages/notices 200
