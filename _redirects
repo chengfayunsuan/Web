@@ -26,6 +26,7 @@
 /admin/theoremreach /pages/admin-tr 200
 /privacy /pages/privacy 200
 /terms   /pages/terms   200
+/rules   /pages/rules   200
 /notices /pages/notices 200
 /admin/traffic   /pages/admin-traffic 200
 /survey  /pages/survey 200
