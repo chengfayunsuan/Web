@@ -1735,9 +1735,14 @@ async function ouPostback(request, env, url) {
     return mtxText('1', 200);
   }
 
+  /* OU 的 {PAYOUT} 单位是 XD（面板 currency_name=XD，100 XD=1 USD），
+     而且已经按面板分成算好：实证 0.14 USD × 100 × 0.69 = 9.66 ≈ 回传的 9.7。
+     所以要按 XD→XB 换算：reward / 100 × 实时汇率。
+     2026-11-22 曾当成 XB 直接入账，多发约 15 倍，线上已冲正，别再改回去。 */
+  const fx = await fxValue(env);
   const res = await mtxApply(env, {
     uid: uid, tid: tid, status: status,
-    units: Math.round(reward * FC_SCALE),
+    units: Math.round(reward / XD_PER_USD * fx * FC_SCALE),
     provider: 'opinionuniverse',
     kind: 'opinionuniverse_reward',
     kindRev: 'opinionuniverse_reverse',
