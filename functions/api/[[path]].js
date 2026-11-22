@@ -71,6 +71,7 @@ export async function onRequest(context) {
     if (path === 'moonetix/tasks' && request.method === 'GET') return await mtxTasks(request, env);
     if (path === 'moonetix/postback') return await mtxPostback(request, env, url);
     if (path === 'opinionuniverse/postback') return await ouPostback(request, env, url);
+    if (path === 'opinionuniverse/go' && request.method === 'GET') return await ouGo(request, env);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1663,6 +1664,38 @@ async function hookLog(env, a) {
  *   user=1 tx=vid2grs9jj status=1 reward=69 payout=100 offer=1 eventid= eventname=event sig=<64hex>
  */
 const OU_IP = '147.182.172.173';
+
+/* 墙的地址和身份是公开的（每个入口 URL 都明文带着），不放环境变量也行；
+   但集中在一处，将来换 placement 只改这里。SID 就是本站 uid，
+   回传的 user 字段会原样带回来，跟 ouPostback 的验签链路对得上。 */
+function ouConf(env) {
+  const pubId = String(env.OPINIONUNIVERSE_PUB_ID || '4167').trim();
+  const appId = String(env.OPINIONUNIVERSE_APP_ID || 'ID_a15590752040f8c4619c67bf191e58ba').trim();
+  return { pubId, appId, live: !!(pubId && appId) };
+}
+
+async function ouGo(request, env) {
+  const origin = new URL(request.url).origin;
+  const session = await currentSession(request, env);
+  if (!session) return Response.redirect(origin + '/login', 302);
+  if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+
+  const c = ouConf(env);
+  if (!c.live) return Response.redirect(origin + '/hall', 302);
+
+  /* SID 必须是本站 uid：服务商回传时把它放进 user 参数，才知道给谁加分 */
+  const target = 'https://opinionuniverse.com/offerwall?pubId=' + encodeURIComponent(c.pubId)
+    + '&SID=' + encodeURIComponent(String(session.uid))
+    + '&appId=' + encodeURIComponent(c.appId);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target,
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer-when-downgrade'
+    }
+  });
+}
 
 async function ouPostback(request, env, url) {
   const p = await mtxParams(request, url);
