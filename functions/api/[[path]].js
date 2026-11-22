@@ -70,9 +70,7 @@ export async function onRequest(context) {
     if (path === 'moonetix/link' && request.method === 'GET') return await mtxLink(request, env);
     if (path === 'moonetix/tasks' && request.method === 'GET') return await mtxTasks(request, env);
     if (path === 'moonetix/postback') return await mtxPostback(request, env, url);
-    /* OpinionUniverse 探针：只记录真实请求，不验签、不入账。
-       正式接口等拿到面板测试发的字段样本再写，字段名一律照样本来。 */
-    if (path === 'opinionuniverse/postback') return await ouProbe(request, env, url);
+    if (path === 'opinionuniverse/postback') return await ouPostback(request, env, url);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1653,17 +1651,75 @@ async function hookLog(env, a) {
   }
 }
 
-/* OpinionUniverse 回传探针：把服务商真实发来的每个参数记进 hook_log，
-   回 1 满足它的成功判定，但不碰余额。字段样本到手后换成正式验签+入账。 */
-async function ouProbe(request, env, url) {
+/* ---------------- OpinionUniverse 回传 ----------------
+ * 与 Moonetix / TR 是两套独立协议，别复用它们的验签：
+ *   - 签名 = hex( HMAC-SHA256(postback secret, {TransactionID}) )，只签交易号一个值
+ *     已用面板 Test Postback 的真实回传逐算法验证过（其余九种候选全部不匹配）
+ *   - 成功响应体必须是纯文本 "1"，回 ok 它会一直重试
+ *   - {PAYOUT}=用户该得的分（reward）；{PUBPAYOUT}=我们的美元收入（payout），
+ *     后者只进流水对账，绝不能当成分发给用户
+ *   - 面板勾了白名单 IP：147.182.172.173，作为签名的辅助校验
+ * 字段样本（面板 TEST 真实发出，2026-11-22）：
+ *   user=1 tx=vid2grs9jj status=1 reward=69 payout=100 offer=1 eventid= eventname=event sig=<64hex>
+ */
+const OU_IP = '147.182.172.173';
+
+async function ouPostback(request, env, url) {
   const p = await mtxParams(request, url);
+  const secret = String(env.OPINIONUNIVERSE_SECRET || '').trim();
+  const ip = request.headers.get('CF-Connecting-IP') || '';
+  const tid = String(p.tx || p.transaction_id || '').trim();
+  const sig = String(p.sig || p.hash || '').trim().toLowerCase();
+
+  /* 没配密钥就只记录不入账 —— 宁可让它重试，也不能无签名发钱 */
+  if (!secret) {
+    await hookLog(env, { provider: 'opinionuniverse', method: request.method,
+      params: JSON.stringify(p), result: 'not configured', ip: ip });
+    return mtxText('1', 200);
+  }
+
+  /* 验签：只签交易号。缺签名或签错，回 1 但不入账
+     （回非 200 它会重试一周，日志照样留着，排查够了） */
+  let verdict = 'ok';
+  if (!/^[0-9a-f]{64}$/.test(sig)) verdict = 'missing sig';
+  else if (!tid) verdict = 'missing tx';
+  else if ((await hmacHex(secret, tid)) !== sig) verdict = 'bad sig';
+
   await hookLog(env, {
-    provider: 'opinionuniverse',
-    method: request.method,
+    provider: 'opinionuniverse', method: request.method,
     params: JSON.stringify(p),
-    result: 'probe ' + url.pathname,
-    ip: request.headers.get('CF-Connecting-IP') || ''
+    tokenLen: sig.length, tokenOk: verdict === 'ok' ? 1 : 0,
+    result: verdict + (ip === OU_IP ? ' ip=ok' : ' ip=' + ip),
+    ip: ip
   });
+  if (verdict !== 'ok') return mtxText('1', 200);
+
+  const uid = Number(p.user || p.user_id || 0);
+  const status = Number(p.status || 1);
+  const reward = Number(p.reward || 0);
+  if (!Number.isInteger(uid) || uid <= 0 || (status !== 1 && status !== 2) ||
+      !isFinite(reward) || reward < 0) {
+    return mtxText('1', 200);
+  }
+
+  const res = await mtxApply(env, {
+    uid: uid, tid: tid, status: status,
+    units: Math.round(reward * FC_SCALE),
+    provider: 'opinionuniverse',
+    kind: 'opinionuniverse_reward',
+    kindRev: 'opinionuniverse_reverse',
+    label: '任务墙',
+    meta: {
+      eventId: String(p.eventid || ''),
+      offerId: String(p.offer || ''),
+      offerName: String(p.eventname || '') || (p.offer ? '任务 #' + p.offer : ''),
+      payout: String(p.payout || ''),
+      currency: 'USD',
+      ip: ip
+    }
+  });
+  console.log('ou postback:', verdict, 'uid=' + uid, 'tx=' + tid,
+    'reward=' + reward, 'status=' + status, JSON.stringify(res));
   return mtxText('1', 200);
 }
 
