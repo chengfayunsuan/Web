@@ -70,6 +70,9 @@ export async function onRequest(context) {
     if (path === 'moonetix/link' && request.method === 'GET') return await mtxLink(request, env);
     if (path === 'moonetix/tasks' && request.method === 'GET') return await mtxTasks(request, env);
     if (path === 'moonetix/postback') return await mtxPostback(request, env, url);
+    /* OpinionUniverse 探针：只记录真实请求，不验签、不入账。
+       正式接口等拿到面板测试发的字段样本再写，字段名一律照样本来。 */
+    if (path === 'opinionuniverse/postback') return await ouProbe(request, env, url);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1648,6 +1651,20 @@ async function hookLog(env, a) {
     /* 表还没建、或写失败，都不能让回调本身挂掉 */
     console.error('hook_log failed:', e && e.message);
   }
+}
+
+/* OpinionUniverse 回传探针：把服务商真实发来的每个参数记进 hook_log，
+   回 1 满足它的成功判定，但不碰余额。字段样本到手后换成正式验签+入账。 */
+async function ouProbe(request, env, url) {
+  const p = await mtxParams(request, url);
+  await hookLog(env, {
+    provider: 'opinionuniverse',
+    method: request.method,
+    params: JSON.stringify(p),
+    result: 'probe ' + url.pathname,
+    ip: request.headers.get('CF-Connecting-IP') || ''
+  });
+  return mtxText('1', 200);
 }
 
 async function trPostback(request, env, url, path) {
