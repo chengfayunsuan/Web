@@ -61,11 +61,13 @@
     return style() === 'name' ? cur.name : cur.code;
   }
 
-  /* 把 XB 基准值转成当前模式应显示的数字字符串 */
-  function money(v) {
+  /* 把 XB 基准值转成当前模式应显示的数字字符串。
+     digits 默认 4 位（账目精度）；问卷报价这种展示用的数传 2，
+     免得汇率除不尽的尾数抖成一串小数。 */
+  function money(v, digits) {
     var n = Number(v) || 0;
     if (mode() === 'USD') n = n / window.CF.rate * XD_PER_USD;
-    return trim(n.toFixed(4));
+    return trim(n.toFixed(digits == null ? 4 : digits));
   }
 
   /* 反向：用户在当前模式下填的数字，换回 XB 基准值（后端只认 XB） */
@@ -85,7 +87,8 @@
       if (!el.hasAttribute('data-cfb')) return;
       var raw = Number(el.getAttribute('data-cfb')) || 0;
       var signed = el.getAttribute('data-signed') === '1';
-      var txt = money(signed ? Math.abs(raw) : raw);
+      var digits = el.getAttribute('data-cur-digits');
+      var txt = money(signed ? Math.abs(raw) : raw, digits == null ? null : Number(digits));
       if (signed) txt = (raw < 0 ? '−' : '+') + txt;
       el.textContent = txt;
     } else if (key === 'code') {
@@ -176,11 +179,12 @@
     /* 金额录入：传当前模式的数字，返回 XB 基准值 */
     toBase: toBase,
     /* 给金额节点标记原始 XB 值，并立即套用当前显示 */
-    amount: function (el, v) {
+    amount: function (el, v, digits) {
       if (!el) return;
       el.setAttribute('data-cfb', v == null ? '0' : String(v));
       el.setAttribute('data-cur', 'amount');
-      el.textContent = money(v);
+      if (digits != null) el.setAttribute('data-cur-digits', String(digits));
+      el.textContent = money(v, digits);
     },
     setCurrency: function (m) {
       if (!MODES[m]) return;

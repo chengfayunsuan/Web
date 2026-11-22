@@ -9,8 +9,8 @@
   var $ = function (id) { return document.getElementById(id); };
 
   /* 金额显示统一走 CF，切换币种时由 CF.refresh 重刷所有 data-cfb 节点 */
-  function setAmt(el, v) {
-    if (window.CF && CF.amount) CF.amount(el, v);
+  function setAmt(el, v, digits) {
+    if (window.CF && CF.amount) CF.amount(el, v, digits);
     else if (el) el.textContent = trimNum(v);
   }
 
@@ -236,7 +236,9 @@
     var pay = document.createElement('div');
     pay.className = 'svc__pay';
     var num = document.createElement('b');
-    setAmt(num, s.price);
+    /* 问卷报价是展示用的估值（汇率会动、入账按回调实数），截到 2 位小数。
+       别的金额（余额、流水）仍走 4 位账目精度，不受影响。 */
+    setAmt(num, s.price, 2);
     var unit = document.createElement('i');
     unit.setAttribute('data-cur', 'code');
     unit.textContent = 'XB';

@@ -2025,8 +2025,10 @@ async function trSurveyList(request, env) {
       /* 上游不给问卷标题，只有 loi/cpi/incidence，用耗时给个粗档位当标签 */
       topic: (isDemo ? '测试 · ' : '') + (loi <= 5 ? '快速' : (loi <= 12 ? '常规' : '深度')),
       /* price 一律 XB 口径（元），前端按当前币种自己换。
-         这里只保留到分：问卷报价用不着四位小数，卡片主数字短一点才好看 */
-      price: formatFc(Math.round(usd * fx * c.share * 100) * 100),
+         必须保留到 FC_SCALE 全精度（4 位）：只留 2 位的话，前端换成 XD
+         要除以汇率再乘 100，被截掉的那点尾数会被放大成 179.4686 这种
+         四位小数（真值 179.40）。精度留够，前端才能显示出干净的数。 */
+      price: formatFc(Math.round(usd * fx * c.share * FC_SCALE)),
       durationMin: loi,
       stars: Math.round(Number(s.average_rating) || 0),
       grade: '',
