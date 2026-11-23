@@ -1821,7 +1821,9 @@ async function blPostback(request, env, url) {
 
   await hookLog(env, {
     provider: 'bitlabs', method: request.method,
-    params: JSON.stringify(p),
+    /* 把原始 URL 原样留一份：验签失败时只有这个能定位到差异，
+       重建出来的 URL 顺序/编码稍有不同就算不对 */
+    params: JSON.stringify(p) + ' RAWURL=' + raw.slice(0, 400),
     tokenLen: given.length, tokenOk: verdict === 'ok' ? 1 : 0,
     result: verdict + ' type=' + (type || '?') +
       (reason ? ' reason=' + reason : '') + ' ip=' + ip,
