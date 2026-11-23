@@ -178,15 +178,6 @@
 
   function isAdmin(me) { return me && (me.role === 'owner' || me.role === 'admin'); }
 
-  /* ---------- 通用： soon 按钮 ---------- */
-
-  document.querySelectorAll('[data-soon]').forEach(function (el) {
-    el.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      say(el.getAttribute('data-soon') + ' · 待建，接口与表结构未开放');
-    });
-  });
-
   /* ---------- 概览 ---------- */
 
   function initOverview(me) {

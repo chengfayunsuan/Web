@@ -388,17 +388,6 @@
       }
       return;
     }
-
-    /* 未开放功能提示：各页统一交给这里处理 */
-    var soon = t.closest('[data-soon]');
-    if (soon) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      var label = soon.getAttribute('data-soon') || '该功能';
-      var page = document.body.getAttribute('data-page') || '';
-      var suffix = page.indexOf('admin') === 0 ? ' · 待建，接口与表结构未开放' : ' · 功能开发中';
-      toast(label + suffix);
-    }
   }, true);
 
   /* ---------- 同导航组 SPA ----------

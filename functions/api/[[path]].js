@@ -1491,7 +1491,6 @@ const TR_ENTRY = {
   router: 'https://theoremreach.com/respondent_entry/router',
   offerwall: 'https://theoremreach.com/respondent_entry/direct'
 };
-const TR_WALL = TR_ENTRY.router;
 
 /* 对外只报 XD。两种币各管一段，别混：
  *   XB —— 站内记账单位，锚人民币，1 XB = 1 元，不出门（台账、明细、余额都它）
@@ -2505,9 +2504,13 @@ async function ledger(request, env, url) {
   const kind = (url.searchParams.get('kind') || '').trim();
   const filtered = LEDGER_KINDS.indexOf(kind) >= 0;
 
+  /* 提现打款（withdraw_paid）那笔记的是「冻结划出」，可用余额根本没动 ——
+     申请时 withdraw_lock 已经减过一次了。两边都算支出就重复报一倍，
+     所以汇总把它排掉；明细里照旧显示，查打款时间和备注还要靠它。 */
   const sum = await env.DB.prepare(
     `SELECT COALESCE(SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END), 0) AS income,
-            COALESCE(SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END), 0) AS outcome,
+            COALESCE(SUM(CASE WHEN delta < 0 AND kind <> 'withdraw_paid'
+                              THEN -delta ELSE 0 END), 0) AS outcome,
             COUNT(*) AS n
        FROM fc_ledger WHERE uid = ?`
   ).bind(session.uid).first();
@@ -2801,8 +2804,6 @@ async function adminTicketDecide(request, env, admin) {
 }
 
 /* ---------------- 问卷大厅 ---------------- */
-
-const SURVEY_COLS = 'id, title, provider, price_units, grade, stars, requirement, topic, duration_min, entry_url, featured, status, created_at';
 
 function surveyRow(r) {
   return {

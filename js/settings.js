@@ -45,13 +45,6 @@
     toastTimer = setTimeout(function () { toast.classList.remove('is-on'); }, 2400);
   }
 
-  document.addEventListener('click', function (ev) {
-    var el = ev.target.closest ? ev.target.closest('[data-soon]') : null;
-    if (!el) return;
-    ev.preventDefault();
-    say((el.getAttribute('data-soon') || '该功能') + ' · 功能开发中');
-  });
-
   /* ---------- 退出 ---------- */
 
   var logoutBtn = $('logoutBtn');
