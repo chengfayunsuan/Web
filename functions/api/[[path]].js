@@ -1831,6 +1831,12 @@ async function blPostback(request, env, url) {
   });
   if (verdict !== 'ok') return mtxText('OK', 200);
 
+  /* Callback Tester 的请求一定带 debug=true，官方用它保证「不影响生产」。
+     这里必须跟着跳过，否则拿真实数字 uid 测一次就真发钱。 */
+  if (/^(1|true|yes)$/i.test(String(p.debug || '').trim())) {
+    return mtxText('OK', 200);
+  }
+
   const uid = Number(p.uid || p.user_id || p.user || 0);
   const xd = Number(p.xd || p.reward || 0);
   const usd = Number(p.usd || 0);
