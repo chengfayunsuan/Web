@@ -151,7 +151,7 @@
     items: [
       { id: 'W20261116002', uid: 17, username: '沈知白', amount: '26.5', channel: 'alipay', account: 'shen@pay.example', status: 'pending', createdAt: '2026-11-16T11:30:00Z' },
       { id: 'W20261116001', uid: 2, username: '林一舟', amount: '20', channel: 'wechat', account: 'wx_pay_88', status: 'pending', createdAt: '2026-11-16T09:12:00Z' },
-      { id: 'W20261112001', uid: 2, username: '林一舟', amount: '12', channel: 'alipay', account: 'lin@pay.example', status: 'paid', createdAt: '2026-11-12T08:00:00Z', reviewedAt: '2026-11-12T10:00:00Z' }
+      { id: 'W20261112001', uid: 2, username: '林一舟', amount: '12', channel: 'alipay', account: 'lin@pay.example', status: 'paid', createdAt: '2026-11-12T08:00:00Z', reviewedAt: '2026-11-12T10:00:00Z', reviewNote: '支付宝已到账' }
     ]
   };
 
@@ -491,18 +491,42 @@
         var acts = document.createElement('span');
         acts.className = 'adm-acts';
 
+        /* 备注列：待审给输入框，审完就显示当初写的那句。
+           备注会跟着打款/驳回一起写进 withdrawals.review_note，
+           也进流水 memo，日后核对有据可查。 */
+        var note = document.createElement('span');
+        note.className = 'adm-note';
+        var noteInput = null;
+
+        if (w.status === 'pending') {
+          noteInput = document.createElement('input');
+          noteInput.type = 'text';
+          noteInput.className = 'adm-note__i';
+          noteInput.maxLength = 120;
+          noteInput.placeholder = '备注';
+          noteInput.value = w.reviewNote || '';
+          note.appendChild(noteInput);
+        } else {
+          note.className = 'adm-note adm-note__t';
+          note.textContent = w.reviewNote || '—';
+        }
+
         if (w.status === 'pending') {
           var ok = document.createElement('button');
           ok.className = 'btn btn--red btn--s';
           ok.type = 'button';
           ok.textContent = '通过打款';
-          ok.addEventListener('click', function () { decide(w.id, 'paid'); });
+          ok.addEventListener('click', function () {
+            decide(w.id, 'paid', noteInput ? noteInput.value : '');
+          });
 
           var no = document.createElement('button');
           no.className = 'btn btn--ghost btn--s';
           no.type = 'button';
           no.textContent = '驳回退回';
-          no.addEventListener('click', function () { decide(w.id, 'rejected'); });
+          no.addEventListener('click', function () {
+            decide(w.id, 'rejected', noteInput ? noteInput.value : '');
+          });
 
           acts.appendChild(ok);
           acts.appendChild(no);
@@ -515,15 +539,15 @@
 
         row.appendChild(id); row.appendChild(who); row.appendChild(amt);
         row.appendChild(acc); row.appendChild(at); row.appendChild(st);
-        row.appendChild(acts);
+        row.appendChild(note); row.appendChild(acts);
         list.appendChild(row);
       });
 
       empty.hidden = shown.length > 0;
     }
 
-    function decide(id, action) {
-      postJSON('/api/admin/withdrawals/decide', { id: id, action: action }).then(function (r) {
+    function decide(id, action, note) {
+      postJSON('/api/admin/withdrawals/decide', { id: id, action: action, note: note || '' }).then(function (r) {
         if (r.body && r.body.ok) {
           say(action === 'paid' ? '已通过打款' : '已驳回，冻结退回余额');
           load();

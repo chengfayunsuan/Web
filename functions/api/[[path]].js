@@ -4796,7 +4796,7 @@ async function adminWithdrawals(request, env, url) {
 
   const rows = await env.DB.prepare(
     `SELECT w.id, w.uid, w.amount, w.channel, w.account, w.status,
-            w.created_at, w.reviewed_at, u.username,
+            w.created_at, w.reviewed_at, w.review_note, u.username,
             (SELECT COUNT(*) FROM risk_events r
               WHERE r.uid = w.uid AND r.at >= datetime('now','+8 hours','-30 days')) AS risk_n,
             (SELECT MAX(r.score) FROM risk_events r
@@ -4823,6 +4823,8 @@ async function adminWithdrawals(request, env, url) {
       status: r.status,
       createdAt: toIso(r.created_at),
       reviewedAt: toIso(r.reviewed_at),
+      /* 自己写的备注：待审时为空，审完回填，下次打开这单还看得见 */
+      reviewNote: r.review_note || '',
       /* 复核时先看这一步：近 30 天被风控记过几次、最重几分 */
       riskCount: r.risk_n || 0,
       riskScore: r.risk_max || 0

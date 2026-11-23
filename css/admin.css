@@ -261,7 +261,40 @@ html:not([data-theme]) body[data-accent="blue"] {
 .adm-tr--user { grid-template-columns: 56px minmax(0, 1.4fr) 76px 76px 110px 110px; }
 
 /* 提现审核 */
-.adm-tr--wd { grid-template-columns: 128px minmax(0, .8fr) 92px minmax(0, 1.1fr) 146px 72px auto; }
+/* 八列在 1080 屏上本来就挤，之前栅格只给了 6 列、表头 7 格，
+   操作列被顶到下一行，连带整行错位。现在列数对齐，且各列留最小宽度，
+   放不下就在容器里横向滚，不再压缩到按钮换行。 */
+.adm-tr--wd {
+  grid-template-columns:
+    112px minmax(96px, .8fr) 76px minmax(140px, 1.3fr)
+    116px 56px minmax(110px, 1fr) 232px;
+}
+
+.adm-list--wd { overflow-x: auto; }
+
+/* 两个按钮并排要 230 上下，容器不够就压缩了列宽让它们竖排。
+   这里禁止换行，宁可整表横向滚。 */
+.adm-list--wd .adm-acts { flex-wrap: nowrap; }
+
+/* 备注列：待审行是输入框，已处理行是文字。
+   之前表头 7 个格、栅格只给了 6 列，操作列被挤到下一行——补成 7+1 列后对齐。 */
+.adm-note { min-width: 0; }
+
+.adm-note__i {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 2px solid var(--hair);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.adm-note__i::placeholder { color: var(--gray); }
+.adm-note__i:focus { outline: 3px solid var(--red); outline-offset: -1px; }
+
+.adm-note__t { font-size: 12px; color: var(--gray); word-break: break-word; }
 
 /* 最近流水 */
 .adm-tr--lg { grid-template-columns: 150px 120px 90px 110px minmax(0, 1fr); }
