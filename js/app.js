@@ -648,7 +648,9 @@
       p.className = 'st-item__p';
 
       var b = document.createElement('b');
-      setAmt(b, it.price);
+      /* 兑换价按两位显示：库里这是 XB 基准，换到 XD 会带一串尾数
+         （如 53.4508 XB → 800.0006 XD），两位才是用户该看到的数 */
+      setAmt(b, it.price, 2);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
       u.textContent = 'XB';
