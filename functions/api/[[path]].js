@@ -73,6 +73,7 @@ export async function onRequest(context) {
     if (path === 'opinionuniverse/postback') return await ouPostback(request, env, url);
     if (path === 'opinionuniverse/go' && request.method === 'GET') return await ouGo(request, env);
     if (path === 'bitlabs/postback') return await blPostback(request, env, url);
+    if (path === 'bitlabs/go' && request.method === 'GET') return await blGo(request, env);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1884,6 +1885,30 @@ async function blPostback(request, env, url) {
     return mtxText('OK', 200);
   }
   return mtxText('OK', 200);
+}
+
+/* BitLabs 墙入口：官方 web 集成就是 https://web.bitlabs.ai/?uid=[UUID]&token=[API_TOKEN]
+   token 是 App Token（面板 App/API Token），会随跳转 URL 暴露在前端——
+   官方就是这么设计的，它只用来认「哪个 App」，不是密钥。 */
+async function blGo(request, env) {
+  const origin = new URL(request.url).origin;
+  const session = await currentSession(request, env);
+  if (!session) return Response.redirect(origin + '/login', 302);
+  if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+
+  const token = String(env.BITLABS_APP_TOKEN || '').trim();
+  if (!token) return Response.redirect(origin + '/hall', 302);
+
+  const target = 'https://web.bitlabs.ai/?uid=' + encodeURIComponent(String(session.uid))
+    + '&token=' + encodeURIComponent(token);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target,
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer-when-downgrade'
+    }
+  });
 }
 
 async function trPostback(request, env, url, path) {
