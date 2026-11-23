@@ -72,6 +72,7 @@ export async function onRequest(context) {
     if (path === 'moonetix/postback') return await mtxPostback(request, env, url);
     if (path === 'opinionuniverse/postback') return await ouPostback(request, env, url);
     if (path === 'opinionuniverse/go' && request.method === 'GET') return await ouGo(request, env);
+    if (path === 'bitlabs/postback') return await blPostback(request, env, url);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1196,6 +1197,20 @@ async function hmacHex(secret, msg) {
   return out;
 }
 
+/* BitLabs 用的是 SHA-1（不是 TR/Moonetix 的 SHA-256），且整条 URL 参与签名。
+   官方 Node 示例：url.split('&hash=')[0] 做 HMAC-SHA1，输出 hex。 */
+async function hmacHexSha1(secret, msg) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', k, enc.encode(msg));
+  let out = '';
+  const buf = new Uint8Array(sig);
+  for (let i = 0; i < buf.length; i++) out += buf[i].toString(16).padStart(2, '0');
+  return out;
+}
+
 function mtxFc(units) {
   const s = (Number(units) / FC_SCALE).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
   return s === '' ? '0' : s;
@@ -1323,10 +1338,14 @@ async function mtxApply(env, args) {
   }
 
   /* status 2：冲正，把当初发的扣回来；找不到原单就记一条已冲正的占位，
-     这样之后迟到的 status 1 不会再发钱（官方 handler 的做法） */
+     这样之后迟到的 status 1 不会再发钱（官方 handler 的做法）。
+     refTid：有的服务商（BitLabs）冲正单的 tx 是新号，原单号单独放在 ref 里，
+     这时要用 refTid 去找原单，但幂等与流水仍记冲正单自己的 tid。 */
+  const refTid = String(args.refTid || '').trim();
+  const lookup = refTid || tid;
   const row = await env.DB.prepare(
     'SELECT id, uid, reward_units, status FROM mo_task WHERE transaction_id = ?'
-  ).bind(tid).first();
+  ).bind(lookup).first();
   if (!row) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO mo_task (uid, provider, transaction_id, event_id, reward_units, status, reversed_at)
@@ -1759,6 +1778,104 @@ async function ouPostback(request, env, url) {
   console.log('ou postback:', verdict, 'uid=' + uid, 'tx=' + tid,
     'reward=' + reward, 'status=' + status, JSON.stringify(res));
   return mtxText('1', 200);
+}
+
+/* ---------------- BitLabs 回传 ----------------
+ * 官方文档（developer.bitlabs.ai/docs/callbacks）：
+ *   - 永远是 HTTP GET，30 秒超时，最多重试 10 次，只认 200
+ *   - 必带 [%USER:UID%] / [%VALUE:CURRENCY%] / [%VALUE:USD%] / [%TX%] / &hash=
+ *   - hash = HEX 编码的 HMAC-SHA1(App Secret, 完整 URL 去掉 &hash= 那段)
+ *   - 问卷状态走 [%ACTIVITY:TYPE%]：COMPLETE / START_BONUS / SCREENOUT / RECONCILIATION
+ *   - URL 里的参数名由我们自己在面板配，所以这里用的都是短名：
+ *     uid / xd / usd / tx / type / reason / ref
+ *
+ * 金额口径：VALUE:CURRENCY 是我们面板里设的 App Currency（已设成 XD，$1=69），
+ * 跟 OU 一样是「XD」，不是 XB。所以入账要 XD/100*汇率 折成 XB，别直接当 XB 发。 */
+async function blPostback(request, env, url) {
+  const p = await mtxParams(request, url);
+  const secret = String(env.BITLABS_SECRET || '').trim();
+  const ip = request.headers.get('CF-Connecting-IP') || '';
+  const tid = String(p.tx || p.transaction_id || '').trim();
+  const type = String(p.type || p.activity_type || '').trim().toUpperCase();
+  const reason = String(p.reason || p.survey_reason || '').trim().toUpperCase();
+
+  /* 没配密钥：只记录、不入账，但回 200 免得它无意义重试十次 */
+  if (!secret) {
+    await hookLog(env, { provider: 'bitlabs', method: request.method,
+      params: JSON.stringify(p), result: 'not configured', ip: ip });
+    return mtxText('OK', 200);
+  }
+
+  /* 验签：拿 request.url 原串切掉 &hash= 之后那段。
+     官方特意强调「不要 encode/decode 再算」，所以这里一个字都不动。 */
+  const raw = request.url || '';
+  const cut = raw.lastIndexOf('&hash=');
+  const given = String(p.hash || '').trim().toLowerCase();
+  let verdict = 'ok';
+  if (cut < 0 || !given) verdict = 'missing hash';
+  else {
+    const baseStr = raw.slice(0, cut);
+    const calc = await hmacHexSha1(secret, baseStr);
+    if (calc !== given) verdict = 'bad hash';
+  }
+
+  await hookLog(env, {
+    provider: 'bitlabs', method: request.method,
+    params: JSON.stringify(p),
+    tokenLen: given.length, tokenOk: verdict === 'ok' ? 1 : 0,
+    result: verdict + ' type=' + (type || '?') +
+      (reason ? ' reason=' + reason : '') + ' ip=' + ip,
+    ip: ip
+  });
+  if (verdict !== 'ok') return mtxText('OK', 200);
+
+  const uid = Number(p.uid || p.user_id || p.user || 0);
+  const xd = Number(p.xd || p.reward || 0);
+  const usd = Number(p.usd || 0);
+
+  /* 只认「完成」和「对账扣回」两种要记账的状态：
+     COMPLETE / START_BONUS 是发钱，RECONCILIATION 是扣回；
+     SCREENOUT（落榜/质检淘汰）本来就不该给钱，回 200 让它别重试。 */
+  const isRev = type === 'RECONCILIATION';
+  const isPay = type === 'COMPLETE' || type === 'START_BONUS';
+  if (!isPay && !isRev) {
+    return mtxText('OK', 200);
+  }
+  if (!Number.isInteger(uid) || uid <= 0) return mtxText('OK', 200);
+  if (!tid) return mtxText('OK', 200);
+
+  /* 冲正回传的 value 已经是负数；取绝对值交给 mtxApply 按 status=2 扣 */
+  const fx = await fxValue(env);
+  const units = Math.round(Math.abs(xd) / XD_PER_USD * fx * FC_SCALE);
+
+  /* 0 元（比如 $0 的安装任务）不写账，但仍回 200 */
+  if (units <= 0) return mtxText('OK', 200);
+
+  const res = await mtxApply(env, {
+    uid: uid, tid: tid, status: isRev ? 2 : 1,
+    /* 冲正单的原单号在 ref 里，tx 自己是个新号（官方会给 r 前缀） */
+    refTid: isRev ? String(p.ref || '').trim() : '',
+    units: units,
+    provider: 'bitlabs',
+    kind: 'bitlabs_reward',
+    kindRev: 'bitlabs_reverse',
+    label: '问卷墙',
+    meta: {
+      eventId: String(p.ref || ''),
+      offerId: String(p.survey_id || ''),
+      offerName: type === 'START_BONUS' ? '首访奖励' : '问卷',
+      payout: String(usd || ''),
+      currency: 'USD',
+      ip: ip
+    }
+  });
+
+  console.log('bitlabs postback:', verdict, 'type=' + type, 'uid=' + uid,
+    'tx=' + tid, 'xd=' + xd, 'usd=' + usd, JSON.stringify(res));
+  if (!res.ok && res.error === 'no_user') {
+    return mtxText('OK', 200);
+  }
+  return mtxText('OK', 200);
 }
 
 async function trPostback(request, env, url, path) {
