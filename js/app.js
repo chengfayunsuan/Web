@@ -507,10 +507,30 @@
       paint();
     }
 
+    /* 邮箱没验证的号拿不到问卷入口，服务端会回 email_unverified。
+       别让它落成「当前没有可参与的问卷」——那是在骗人，要说清是没验证。 */
+    function needVerify() {
+      document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
+      if (count) count.textContent = '0';
+      if (!empty) return;
+      empty.hidden = false;
+      empty.innerHTML =
+        '<p class="pg-empty__k">EMAIL NOT VERIFIED</p>' +
+        '<h2 class="pg-empty__t">先验证邮箱，才能进问卷墙</h2>' +
+        '<p class="pg-empty__d">邮箱没验证的号拿不到问卷入口，这道门是挡批量注册的。' +
+        '到设置页发一封验证码，填上就好。</p>' +
+        '<div class="pg-empty__a">' +
+        '<a class="btn btn--red" href="/settings?verify=1">去验证邮箱</a>' +
+        '<a class="btn btn--ghost" href="/home">回到账户首页</a></div>';
+    }
+
     function loadStation() {
       getJSON('/api/surveys').then(function (r) {
         if (r.status === 200 && r.body && r.body.ok) {
           all = r.body.items || [];
+        } else if (r.body && r.body.error === 'email_unverified') {
+          needVerify();
+          return;
         }
         afterLoad();
       });
@@ -526,6 +546,10 @@
           afterLoad();
           return;
         }
+      }
+      if (r.body && r.body.error === 'email_unverified') {
+        needVerify();
+        return;
       }
       loadStation();
     });

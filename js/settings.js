@@ -1158,6 +1158,22 @@
       }
       if (window.CF && CF.cache) CF.cache.set(data.user);
       show(data.user);
+
+      /* 从问卷墙被踢回来的：说清为什么，并把邮箱那行滚到眼前。
+         只在没验证时提示，验证过的人可能是手滑点进来的。 */
+      if (/[?&]verify=1/.test(location.search) && !data.user.emailVerified) {
+        if (toast) {
+          toast.textContent = T('进问卷墙前先验证邮箱，点右边「验证邮箱」收码填上。',
+            'Verify your email before entering the survey wall.');
+          toast.classList.add('is-on');
+          setTimeout(function () { toast.classList.remove('is-on'); }, 6000);
+        }
+        var vrow = $('rowEmail');
+        if (vrow && vrow.scrollIntoView) {
+          setTimeout(function () { vrow.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 80);
+        }
+      }
+
       loadRedeems();
       loadBans();
       loadTickets();

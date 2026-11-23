@@ -1569,6 +1569,7 @@ async function trLink(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
   if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   const c = trConf(env);
   if (!c.live) {
@@ -1629,6 +1630,7 @@ async function trGo(request, env) {
   const session = await currentSession(request, env);
   if (!session) return Response.redirect(origin + '/login', 302);
   if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+  if (await wallBlocked(env, session.uid)) return Response.redirect(origin + '/settings?verify=1', 302);
 
   const c = trConf(env);
   if (!c.apiKey) return Response.redirect(origin + '/earn', 302);
@@ -1699,6 +1701,7 @@ async function ouGo(request, env) {
   const session = await currentSession(request, env);
   if (!session) return Response.redirect(origin + '/login', 302);
   if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+  if (await wallBlocked(env, session.uid)) return Response.redirect(origin + '/settings?verify=1', 302);
 
   const c = ouConf(env);
   if (!c.live) return Response.redirect(origin + '/hall', 302);
@@ -1895,6 +1898,7 @@ async function blGo(request, env) {
   const session = await currentSession(request, env);
   if (!session) return Response.redirect(origin + '/login', 302);
   if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+  if (await wallBlocked(env, session.uid)) return Response.redirect(origin + '/settings?verify=1', 302);
 
   const token = String(env.BITLABS_APP_TOKEN || '').trim();
   if (!token) return Response.redirect(origin + '/hall', 302);
@@ -2200,6 +2204,7 @@ async function trSurveyList(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
   if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   const c = trConf(env);
   if (!c.apiKey || !c.secretKey) return json({ ok: true, items: [], note: 'not_configured' });
@@ -2603,6 +2608,18 @@ function locked() {
   return json({ ok: false, error: 'account_locked' }, 403);
 }
 
+/* 邮箱没验证的号拿不到问卷入口。
+   挡的是批量注册刷号：站被扫的时候一天来几个海外 gmail 号，
+   零余额零登录，等的就是问卷墙开放那天能直接做卷。
+   浏览、兑换、排行榜都照常，只卡问卷这条线。
+   注意：服务商回调入账不走这道门 —— 钱已经赚到了，
+   做完卷再补验证也该给他，不能因为没验证就赖账。 */
+async function wallBlocked(env, uid) {
+  const row = await env.DB.prepare('SELECT email_verified FROM users WHERE id = ?')
+    .bind(uid).first();
+  return !row || !row.email_verified;
+}
+
 async function createSession(env, uid, request) {
   const token = randomHex(32);
   const tokenHash = await sha256Hex(token);
@@ -2812,6 +2829,7 @@ function surveyRow(r) {
 async function surveyList(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   /* 「已参与」也按 IP 看：换了 IP 就该重新变成可参与。
      站长自己永远当「没参加过」—— 想测几遍入口都能点进去。 */
@@ -3294,6 +3312,7 @@ async function surveyJoin(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
   if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   /* 代理 / VPN 网络不给进问卷：当场封号，原因写进封禁记录。
      站长与管理员豁免（banForProxy 内部判角色），免得自己开梯子把自己封了。 */
@@ -3413,6 +3432,7 @@ async function surveyPaper(request, env, url) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
   if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   const id = Number(url.searchParams.get('id'));
   if (!id) return json({ ok: false, error: 'bad_request' }, 400);
@@ -3533,6 +3553,7 @@ async function surveySubmit(request, env) {
   const session = await currentSession(request, env);
   if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
   if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
 
   const intel = await ipIntel(request, env);
   if (intel.ok && (intel.proxy || intel.dc)) {
