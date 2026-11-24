@@ -538,20 +538,39 @@
 
     /* 大厅优先摆外部问卷墙的真实库存——那些是真有钱的卷。
        拿不到（没开权限、上游抽风、当地确实没库存）再退回站内问卷，绝不留白屏。 */
-    getJSON('/api/surveys/tr').then(function (r) {
-      if (r.status === 200 && r.body && r.body.ok) {
-        var ext = r.body.items || [];
-        if (ext.length) {
-          all = ext;
-          afterLoad();
+    function loadAll() {
+      getJSON('/api/surveys/tr').then(function (r) {
+        if (r.status === 200 && r.body && r.body.ok) {
+          var ext = r.body.items || [];
+          if (ext.length) {
+            all = ext;
+            afterLoad();
+            return;
+          }
+        }
+        if (r.body && r.body.error === 'email_unverified') {
+          needVerify();
           return;
         }
-      }
-      if (r.body && r.body.error === 'email_unverified') {
-        needVerify();
-        return;
-      }
-      loadStation();
+        loadStation();
+      });
+    }
+    loadAll();
+
+    /* 问卷墙是在新标签页里打开的。答完切回来，这一页还停在跳走前的余额和库存上，
+       所以离开了 20 秒以上就静默重拉一次，让钱和可答卷自己跟上。 */
+    var hiddenAt = 0;
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      if (!hiddenAt || Date.now() - hiddenAt < 20000) return;
+      hiddenAt = 0;
+      loadAll();
+      getJSON('/api/auth/me').then(function (r) {
+        if (r.status === 200 && r.body && r.body.ok) {
+          if (window.CF && CF.cache) CF.cache.set(r.body.user);
+          paintNav(r.body.user);
+        }
+      });
     });
   }
 
