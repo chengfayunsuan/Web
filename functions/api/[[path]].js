@@ -51,6 +51,7 @@ export async function onRequest(context) {
     if (path === 'ladder' && request.method === 'GET') return await ladder(request, env, url);
     if (path === 'ticket' && request.method === 'POST') return await ticketSubmit(request, env);
     if (path === 'ticket' && request.method === 'GET') return await ticketMine(request, env);
+    if (path === 'feedback' && request.method === 'POST') return await feedbackSubmit(request, env);
     if (path === 'fx' && request.method === 'GET') return await fxRate(env);
     if (path === 'surveys' && request.method === 'GET') return await surveyList(request, env);
     if (path === 'surveys/tr' && request.method === 'GET') return await trSurveyList(request, env);
@@ -2749,6 +2750,44 @@ async function ticketSubmit(request, env) {
   await env.DB.prepare(
     'INSERT INTO tickets (uid, username, type, detail, status, created_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\',\'+8 hours\'))'
   ).bind(uid, username, type, detail, 'open').run();
+
+  return json({ ok: true });
+}
+
+// 公告里的小建议框：不用登录也不用填邮箱，匿名也能发。
+// 落到 tickets 表（type=feedback），后台工单页直接能看到，不单独做一套后台。
+async function feedbackSubmit(request, env) {
+  const body = await readJson(request);
+  if (!body) return json({ ok: false, error: 'bad_request' }, 400);
+
+  const text = String(body.text || '').trim();
+  if (text.length < 2 || text.length > 1000) return json({ ok: false, error: 'invalid_text' }, 400);
+
+  const session = await currentSession(request, env);
+  const uid = session && session.uid ? Number(session.uid) : 0;
+
+  /* 用户名只从库里查，不信前端自报；匿名的记成「访客」 */
+  let username = '访客';
+  if (uid > 0) {
+    const row = await env.DB.prepare(
+      'SELECT username FROM users WHERE id = ? AND deleted_at IS NULL'
+    ).bind(uid).first();
+    username = (row && row.username) || '';
+  }
+
+  const ip = ipOf(request);
+
+  /* 未登录接口，按来源 IP 限流：10 分钟 3 条，超了就等一会儿 */
+  const recent = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM tickets WHERE type = 'feedback' AND ip = ? "
+    + "AND created_at > datetime('now','+8 hours','-10 minutes')"
+  ).bind(ip).first();
+  if (recent && recent.n >= 3) return json({ ok: false, error: 'too_many' }, 429);
+
+  await env.DB.prepare(
+    "INSERT INTO tickets (uid, username, type, detail, status, ip, created_at) "
+    + "VALUES (?, ?, 'feedback', ?, 'open', ?, datetime('now','+8 hours'))"
+  ).bind(uid, username, text, ip).run();
 
   return json({ ok: true });
 }
