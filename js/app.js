@@ -8,6 +8,10 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  /* app.js 由 /hall 与 /en/hall 等成对页面共用，JS 里拼出来的文字都要过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   /* 金额显示统一走 CF，切换币种时由 CF.refresh 重刷所有 data-cfb 节点 */
   function setAmt(el, v, digits) {
     if (window.CF && CF.amount) CF.amount(el, v, digits);
@@ -114,7 +118,7 @@
     var name = $('navName');
     if (bal) setAmt(bal, me.fc);
     if (name) {
-      name.textContent = me.username || '我';
+      name.textContent = me.username || T('我','Me');
       if (me.uid) name.href = '/space?uid=' + encodeURIComponent(me.uid);
     }
     document.body.setAttribute('data-uid', me.uid);
@@ -128,7 +132,7 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function () {
       logoutBtn.disabled = true;
-      logoutBtn.textContent = '退出中';
+      logoutBtn.textContent = T('退出中','Signing out…');
       fetch('/api/auth/logout', { method: 'POST' })
         .catch(function () {})
         .then(function () { location.replace(window.CF && CF.goto ? CF.goto('/') : '/'); });
@@ -167,7 +171,7 @@
         toLogin();
         return null;
       }
-      if (!cached) say('账户信息载入失败，请刷新重试');
+      if (!cached) say(T('账户信息载入失败，请刷新重试','Could not load your account. Refresh and retry.'));
       return cached || null;
     });
   }
@@ -175,24 +179,24 @@
   /* ---------- 收支类型 ---------- */
 
   var KIND = {
-    signup_bonus: '注册赠送',
-    survey_reward: '问卷奖励',
-    survey_reject: '答卷驳回',
-    withdraw_lock: '提现冻结',
-    withdraw_refund: '提现退回',
-    withdraw_paid: '提现完成',
-    cdk_redeem: '兑换 CDK',
-    admin_adjust: '人工调整',
-    penalty: '违规扣罚',
-    moonetix_reward: '广告墙奖励',
-    moonetix_reverse: '广告墙冲正',
-    theoremreach_reward: '问卷墙奖励',
-    theoremreach_reverse: '问卷墙冲正',
-    theoremreach_offer: '任务墙奖励',
-    theoremreach_offer_reverse: '任务墙冲正'
+    signup_bonus: T('注册赠送','Sign-up bonus'),
+    survey_reward: T('问卷奖励','Survey reward'),
+    survey_reject: T('答卷驳回','Survey rejected'),
+    withdraw_lock: T('提现冻结','Withdrawal hold'),
+    withdraw_refund: T('提现退回','Withdrawal returned'),
+    withdraw_paid: T('提现完成','Withdrawal paid'),
+    cdk_redeem: T('兑换 CDK','CDK redemption'),
+    admin_adjust: T('人工调整','Manual adjustment'),
+    penalty: T('违规扣罚','Penalty'),
+    moonetix_reward: T('广告墙奖励','Offerwall reward'),
+    moonetix_reverse: T('广告墙冲正','Offerwall reversal'),
+    theoremreach_reward: T('问卷墙奖励','Survey wall reward'),
+    theoremreach_reverse: T('问卷墙冲正','Survey wall reversal'),
+    theoremreach_offer: T('任务墙奖励','Task wall reward'),
+    theoremreach_offer_reverse: T('任务墙冲正','Task wall reversal')
   };
 
-  function kindText(k) { return KIND[k] || k || '其他'; }
+  function kindText(k) { return KIND[k] || k || T('其他','Other'); }
 
   /* 金额展示：正数带 +，负数带 − */
   function signedFc(v) {
@@ -259,7 +263,7 @@
     if (s.stars) {
       var st = document.createElement('span');
       st.className = 'svc__stars';
-      st.title = s.stars + ' 星';
+      st.title = T(s.stars + ' 星', s.stars + ' stars');
       for (var i = 1; i <= 5; i++) {
         var star = document.createElement('span');
         if (i > s.stars) star.className = 'off';
@@ -290,14 +294,14 @@
       if (s.durationMin) {
         var dt = document.createElement('span');
         dt.className = 'svc__prov-time';
-        dt.textContent = s.durationMin + ' 分钟';
+        dt.textContent = T(s.durationMin + ' 分钟', s.durationMin + ' min');
         prov.appendChild(dt);
       }
 
       if (s.joined) {
         var dn = document.createElement('span');
         dn.className = 'svc__done';
-        dn.textContent = '已参与';
+        dn.textContent = T('已参与','Joined');
         prov.appendChild(dn);
       }
 
@@ -331,7 +335,7 @@
       var req = document.createElement('p');
       req.className = 'svc__req';
       var em = document.createElement('em');
-      em.textContent = '要求';
+      em.textContent = T('要求','Requires');
       req.appendChild(em);
       /* 样本条件是问卷商写的原文，标记跳过翻译；「要求」标签本身可翻 */
       var rv = document.createElement('span');
@@ -364,8 +368,8 @@
     go.className = 'svc__go' + (netBlocked ? ' is-net' : '');
 
     var gt = document.createElement('span');
-    gt.textContent = restricted ? '账户受限' : (netBlocked ? '网络受限'
-      : (inline ? '开始答题' : (s.entry ? '进入问卷' : '暂未开放')));
+    gt.textContent = restricted ? T('账户受限','Account restricted') : (netBlocked ? T('网络受限','Network restricted')
+      : (inline ? T('开始答题','Start') : (s.entry ? T('进入问卷','Enter survey') : T('暂未开放','Not open yet'))));
     go.appendChild(gt);
 
     if (usable) {
@@ -386,7 +390,7 @@
       go.addEventListener('click', function (ev) {
         if (netSuspect) {
           ev.preventDefault();
-          say('这个网络被判定为代理 / VPN，不能接问卷');
+          say(T('这个网络被判定为代理 / VPN，不能接问卷','This network is flagged as a proxy or VPN — surveys are blocked.'));
 
           if (!external) try {
             fetch('/api/surveys/join', {
@@ -402,12 +406,14 @@
                 if (window.CF && CF.modal) {
                   CF.modal({
                     kicker: 'BANNED',
-                    title: '账号已被封禁',
-                    desc: '这个出口 IP 被判定为代理 / VPN 网络'
+                    title: T('账号已被封禁','Account banned'),
+                    desc: T('这个出口 IP 被判定为代理 / VPN 网络','This exit IP is flagged as a proxy or VPN network')
                       + (d.org ? '（' + d.org + (d.country ? ' · ' + d.country : '') + '）' : '')
-                      + '。按站规，问卷任务只接受真实本地网络，点开即封号并扣 8 点经验，现在只能提交工单和查看消息。',
+                      + T('。按站规，问卷任务只接受真实本地网络，点开即封号并扣 8 点经验，现在只能提交工单和查看消息。',
+                          '. Surveys only accept real local connections — opening one bans the account '
+                          + 'and deducts 8 experience points. You can only open tickets and read messages now.'),
                     hideCancel: true,
-                    submitText: '去设置页看看',
+                    submitText: T('去设置页看看','Check your settings'),
                     fields: [],
                     onSubmit: function () { location.href = window.CF && CF.goto ? CF.goto('/settings') : '/settings'; }
                   });
@@ -508,20 +514,30 @@
     }
 
     /* 邮箱没验证的号拿不到问卷入口，服务端会回 email_unverified。
-       别让它落成「当前没有可参与的问卷」——那是在骗人，要说清是没验证。 */
+       别让它落成「当前没有可参与的问卷」——那是在骗人，要说清是没验证。
+       /en/hall 与 /hall 共用这一份脚本，所以文案和跳转都要分语言：
+       英文页弹中文提示、按钮再跳回中文设置页，海外用户到这一步就全走了。
+       IS_EN 在文件顶部定义，这里直接用。 */
     function needVerify() {
       document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
       if (count) count.textContent = '0';
       if (!empty) return;
       empty.hidden = false;
-      empty.innerHTML =
-        '<p class="pg-empty__k">EMAIL NOT VERIFIED</p>' +
-        '<h2 class="pg-empty__t">先验证邮箱，才能进问卷墙</h2>' +
-        '<p class="pg-empty__d">邮箱没验证的号拿不到问卷入口，这道门是挡批量注册的。' +
-        '到设置页发一封验证码，填上就好。</p>' +
-        '<div class="pg-empty__a">' +
-        '<a class="btn btn--red" href="/settings?verify=1">去验证邮箱</a>' +
-        '<a class="btn btn--ghost" href="/home">回到账户首页</a></div>';
+      empty.innerHTML = IS_EN
+        ? '<p class="pg-empty__k">EMAIL NOT VERIFIED</p>' +
+          '<h2 class="pg-empty__t">Verify your email to open the survey walls</h2>' +
+          '<p class="pg-empty__d">An unverified account cannot reach any survey — this gate ' +
+          'exists to block bulk sign-ups. Open settings, send yourself a code, and enter it.</p>' +
+          '<div class="pg-empty__a">' +
+          '<a class="btn btn--red" href="/en/settings?verify=1">Verify email</a>' +
+          '<a class="btn btn--ghost" href="/en/home">Back to account</a></div>'
+        : '<p class="pg-empty__k">EMAIL NOT VERIFIED</p>' +
+          '<h2 class="pg-empty__t">先验证邮箱，才能进问卷墙</h2>' +
+          '<p class="pg-empty__d">邮箱没验证的号拿不到问卷入口，这道门是挡批量注册的。' +
+          '到设置页发一封验证码，填上就好。</p>' +
+          '<div class="pg-empty__a">' +
+          '<a class="btn btn--red" href="/settings?verify=1">去验证邮箱</a>' +
+          '<a class="btn btn--ghost" href="/home">回到账户首页</a></div>';
     }
 
     function loadStation() {
@@ -577,24 +593,24 @@
   /* ---------- 兑换中心 ---------- */
 
   var STORE_ERR = {
-    insufficient_balance: '可用余额不足，先去做问卷攒够再来。',
-    has_pending: '已有一笔提现正在审核，等它处理完再提交下一笔。',
-    below_min: '低于起提金额。',
-    bad_amount: '请填写正确的提现金额。',
-    bad_channel: '请选择收款渠道。',
-    account_required: '请填写收款账号。',
-    out_of_stock: '库存不足，暂时无法兑换。',
-    item_off: '该商品已下架。',
-    code_not_found: '兑换码不存在，检查一下有没有输错。',
-    code_used: '这个兑换码已经被用过了。',
-    code_item_only: '这是商品专用码，请到对应商品处兑换。',
-    bad_code: '兑换码格式不对。',
-    account_locked: '账户当前状态无法操作，联系客服确认。',
-    unauthorized: '登录状态已失效，请重新登录。'
+    insufficient_balance: T('可用余额不足，先去做问卷攒够再来。','Not enough balance — earn some first.'),
+    has_pending: T('已有一笔提现正在审核，等它处理完再提交下一笔。','A withdrawal is already under review. Wait for it to finish.'),
+    below_min: T('低于起提金额。','Below the minimum withdrawal amount.'),
+    bad_amount: T('请填写正确的提现金额。','Enter a valid withdrawal amount.'),
+    bad_channel: T('请选择收款渠道。','Choose a payout channel.'),
+    account_required: T('请填写收款账号。','Enter the payout account.'),
+    out_of_stock: T('库存不足，暂时无法兑换。','Out of stock right now.'),
+    item_off: T('该商品已下架。','This item is no longer available.'),
+    code_not_found: T('兑换码不存在，检查一下有没有输错。','That code does not exist — check for typos.'),
+    code_used: T('这个兑换码已经被用过了。','That code has already been used.'),
+    code_item_only: T('这是商品专用码，请到对应商品处兑换。','This code is item-specific — redeem it on that item.'),
+    bad_code: T('兑换码格式不对。','Invalid code format.'),
+    account_locked: T('账户当前状态无法操作，联系客服确认。','This account cannot do that — contact support.'),
+    unauthorized: T('登录状态已失效，请重新登录。','Your session expired. Please sign in again.')
   };
 
   function storeErr(code) {
-    return STORE_ERR[code] || ('操作失败：' + (code || '未知错误'));
+    return STORE_ERR[code] || ('操作失败：' + (code || T('未知错误','Unknown error')));
   }
 
   /* 弹层文案里的金额：按当前显示币种换算并带单位，避免说「扣 20」而界面是 XD */
@@ -605,8 +621,8 @@
 
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { say('已复制到剪贴板'); })
-        .catch(function () { say('复制失败，请手动选中'); });
+      navigator.clipboard.writeText(text).then(function () { say(T('已复制到剪贴板','Copied to clipboard')); })
+        .catch(function () { say(T('复制失败，请手动选中','Copy failed — please select it manually')); });
       return;
     }
     var ta = document.createElement('textarea');
@@ -615,7 +631,7 @@
     ta.style.opacity = '0';
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); say('已复制到剪贴板'); } catch (e) { say('复制失败，请手动选中'); }
+    try { document.execCommand('copy'); say(T('已复制到剪贴板','Copied to clipboard')); } catch (e) { say(T('复制失败，请手动选中','Copy failed — please select it manually')); }
     document.body.removeChild(ta);
   }
 
@@ -658,12 +674,12 @@
 
     /* ---------- 商品 ---------- */
 
-    var KIND_LABEL = { code: 'CODE / 兑换码', cash: 'CASH / 现金', sub: 'SUB / 订阅' };
+    var KIND_LABEL = { code: T('CODE / 兑换码','CODE / Redeem code'), cash: T('CASH / 现金','CASH / Cash'), sub: T('SUB / 订阅','SUB / Subscription') };
 
     function stockText(it) {
-      if (it.stock < 0) return '不限量';
-      if (it.stock === 0) return '已兑完';
-      return '剩 ' + it.stock + ' 件';
+      if (it.stock < 0) return T('不限量','Unlimited');
+      if (it.stock === 0) return T('已兑完','Sold out');
+      return T('剩 ' + it.stock + ' 件', it.stock + ' left');
     }
 
     function itemCard(it) {
@@ -713,12 +729,12 @@
 
       if (it.soldOut) {
         btn.disabled = true;
-        btn.textContent = '已兑完';
+        btn.textContent = T('已兑完','Sold out');
       } else if (curFc < Number(it.price)) {
         btn.disabled = true;
-        btn.textContent = '余额不足';
+        btn.textContent = T('余额不足','Insufficient balance');
       } else {
-        btn.textContent = it.kind === 'cash' ? '兑换并提现' : it.kind === 'sub' ? '兑换 · 人工发货' : '立即兑换';
+        btn.textContent = it.kind === 'cash' ? T('兑换并提现','Redeem & withdraw') : it.kind === 'sub' ? T('兑换 · 人工发货','Redeem · manual delivery') : T('立即兑换','Redeem now');
         btn.addEventListener('click', function () { openRedeem(it); });
       }
 
@@ -738,29 +754,30 @@
 
       if (it.kind === 'cash') {
         fields.push({
-          name: 'account', label: '收款账号',
-          placeholder: '支付宝账号或绑定手机号',
-          hint: '账号需与实名信息一致，不一致会被驳回。'
+          name: 'account', label: T('收款账号','Payout account'),
+          placeholder: T('支付宝账号或绑定手机号','Alipay account or linked phone number'),
+          hint: T('账号需与实名信息一致，不一致会被驳回。','Must match your verified identity, or it will be rejected.')
         });
       } else if (it.kind === 'sub') {
         fields.push({
-          name: 'memo', label: '开通信息',
-          placeholder: '需要开通的手机号 / 账号，可留空',
-          hint: '留空则通过站内消息联系你补填。'
+          name: 'memo', label: T('开通信息','Activation details'),
+          placeholder: T('需要开通的手机号 / 账号，可留空','Phone or account to activate — optional'),
+          hint: T('留空则通过站内消息联系你补填。','Leave it blank and we will message you.')
         });
       }
 
       CF.modal({
         kicker: 'REDEEM',
-        title: '兑换「' + it.title + '」',
-        desc: '将从可用余额扣除 ' + curText(it.price) + '，' + desc,
+        title: T('兑换「' + it.title + '」', 'Redeem "' + it.title + '"'),
+        desc: T('将从可用余额扣除 ' + curText(it.price) + '，' + desc,
+          'This deducts ' + curText(it.price) + ' from your available balance. ' + desc),
         fields: fields,
-        submitText: '确认兑换',
-        busyText: '兑换中…',
+        submitText: T('确认兑换','Confirm'),
+        busyText: T('兑换中…','Redeeming…'),
         onSubmit: function (v, api) {
           api.setError('');
           if (it.kind === 'cash' && (v.account || '').length < 4) {
-            api.setError('请填写完整的收款账号。');
+            api.setError(T('请填写完整的收款账号。','Enter the full payout account.'));
             return;
           }
           api.setBusy(true);
@@ -774,11 +791,11 @@
                 loadOrders();
                 /* 兑换码类下单时不再拿到码：审核通过后后台才发码，站内消息通知 */
                 if (it.kind === 'code') {
-                  say('兑换申请已提交，审核通过后发放兑换码');
+                  say(T('兑换申请已提交，审核通过后发放兑换码','Redemption submitted — the code is issued once approved.'));
                 } else if (it.kind === 'cash') {
-                  say('已提交提现申请，等待审核');
+                  say(T('已提交提现申请，等待审核','Withdrawal submitted for review.'));
                 } else {
-                  say('兑换申请已提交，等待人工发货');
+                  say(T('兑换申请已提交，等待人工发货','Redemption submitted — awaiting manual delivery.'));
                 }
               } else {
                 api.setBusy(false);
@@ -787,7 +804,7 @@
             })
             .catch(function () {
               api.setBusy(false);
-              api.setError('网络连接失败，请重试。');
+              api.setError(T('网络连接失败，请重试。','Network error. Try again.'));
             });
         }
       });
@@ -811,41 +828,45 @@
 
       CF.modal({
         kicker: 'WITHDRAW',
-        title: '申请提现',
-        desc: '可提余额 ' + curText(curFc) + '，起提 ' + minShow + ' ' + unit +
+        title: T('申请提现','Request withdrawal'),
+        desc: T('可提余额 ' + curText(curFc) + '，起提 ' + minShow + ' ' + unit +
           '。提交后金额进入冻结，审核通过十五个工作日内到账。',
+          'Available to withdraw: ' + curText(curFc) + '. Minimum: ' + minShow + ' ' + unit +
+          '. The amount is held once submitted and paid within 15 working days of approval.'),
         fields: [
           {
-            name: 'amount', label: '提现金额（' + unit + '）', type: 'number',
+            name: 'amount', label: T('提现金额（' + unit + '）', 'Amount (' + unit + ')'), type: 'number',
             value: minShow, min: minShow, step: '0.01'
           },
           {
-            name: 'channel', label: '收款渠道', type: 'select', value: 'alipay',
+            name: 'channel', label: T('收款渠道','Payout channel'), type: 'select', value: 'alipay',
             options: [
-              { value: 'alipay', label: '支付宝' },
-              { value: 'wechat', label: '微信' },
+              { value: 'alipay', label: T('支付宝','Alipay') },
+              { value: 'wechat', label: T('微信','WeChat') },
               { value: 'paypal', label: 'PayPal' },
               { value: 'payoneer', label: 'Payoneer' }
             ]
           },
-          { name: 'account', label: '收款账号', placeholder: '与实名一致的账号或绑定手机号' }
+          { name: 'account', label: T('收款账号','Payout account'), placeholder: T('与实名一致的账号或绑定手机号','Account or phone matching your verified identity') }
         ],
-        submitText: '提交申请',
-        busyText: '提交中…',
+        submitText: T('提交申请','Submit'),
+        busyText: T('提交中…','Submitting…'),
         onSubmit: function (v, api) {
           api.setError('');
           var typed = Number(v.amount);
           var amount = Math.round(toCfb(typed) * 10000) / 10000;
           if (!isFinite(typed) || amount < MIN_XB) {
-            api.setError('起提金额为 ' + minShow + ' ' + unit + '，请填写不低于该数值的金额。');
+            api.setError(T('起提金额为 ' + minShow + ' ' + unit + '，请填写不低于该数值的金额。',
+              'Minimum withdrawal is ' + minShow + ' ' + unit + '.'));
             return;
           }
           if (amount > curFc) {
-            api.setError('超出可用余额，当前最多可提 ' + curText(curFc) + '。');
+            api.setError(T('超出可用余额，当前最多可提 ' + curText(curFc) + '。',
+              'Exceeds your available balance. You can withdraw up to ' + curText(curFc) + '.'));
             return;
           }
           if ((v.account || '').length < 4) {
-            api.setError('请填写收款账号。');
+            api.setError(T('请填写收款账号。','Enter the payout account.'));
             return;
           }
           api.setBusy(true);
@@ -857,7 +878,8 @@
                 setWallet(r.body.balance, null);
                 loadStore();
                 loadWithdraws();
-                say('提现申请已提交，单号 ' + r.body.ref);
+                say(T('提现申请已提交，单号 ' + r.body.ref,
+                  'Withdrawal submitted — reference ' + r.body.ref));
               } else {
                 api.setBusy(false);
                 api.setError(storeErr(r.body && r.body.error));
@@ -865,7 +887,7 @@
             })
             .catch(function () {
               api.setBusy(false);
-              api.setError('网络连接失败，请重试。');
+              api.setError(T('网络连接失败，请重试。','Network error. Try again.'));
             });
         }
       });
@@ -876,17 +898,17 @@
     function openCode() {
       CF.modal({
         kicker: 'CDK',
-        title: '兑换充值码',
-        desc: '充值码直接加到可用余额，不区分面额，兑换后即时到账。',
+        title: T('兑换充值码','Redeem top-up code'),
+        desc: T('充值码直接加到可用余额，不区分面额，兑换后即时到账。','Top-up codes go straight to your available balance, any denomination, credited instantly.'),
         fields: [
-          { name: 'code', label: '兑换码', placeholder: 'CF-XXXX-XXXX-XXXX' }
+          { name: 'code', label: T('兑换码','Redeem code'), placeholder: 'CF-XXXX-XXXX-XXXX' }
         ],
-        submitText: '立即兑换',
-        busyText: '兑换中…',
+        submitText: T('立即兑换','Redeem now'),
+        busyText: T('兑换中…','Redeeming…'),
         onSubmit: function (v, api) {
           api.setError('');
           if ((v.code || '').length < 4) {
-            api.setError('请输入兑换码。');
+            api.setError(T('请输入兑换码。','Enter a code.'));
             return;
           }
           api.setBusy(true);
@@ -897,7 +919,8 @@
                 api.close();
                 setWallet(r.body.balance, null);
                 loadStore();
-                say('充值成功，到账 ' + curText(r.body.amount));
+                say(T('充值成功，到账 ' + curText(r.body.amount),
+                  'Top-up succeeded — credited ' + curText(r.body.amount)));
               } else {
                 api.setBusy(false);
                 api.setError(storeErr(r.body && r.body.error));
@@ -905,7 +928,7 @@
             })
             .catch(function () {
               api.setBusy(false);
-              api.setError('网络连接失败，请重试。');
+              api.setError(T('网络连接失败，请重试。','Network error. Try again.'));
             });
         }
       });
@@ -913,8 +936,8 @@
 
     /* ---------- 记录 ---------- */
 
-    var ORDER_ST = { paid: '已完成', pending: '待审核', refunded: '已退款' };
-    var WD_ST = { pending: '审核中', paid: '已打款', rejected: '已驳回' };
+    var ORDER_ST = { paid: T('已完成','Completed'), pending: T('待审核','Pending'), refunded: T('已退款','Refunded') };
+    var WD_ST = { pending: T('审核中','In review'), paid: T('已打款','Paid'), rejected: T('已驳回','Rejected') };
 
     function orderRow(o) {
       var row = document.createElement('div');
@@ -943,10 +966,10 @@
         cd.className = 'st-rec__code';
         cd.setAttribute('role', 'button');
         cd.setAttribute('tabindex', '0');
-        cd.title = '点击复制';
+        cd.title = T('点击复制','Click to copy');
         cd.appendChild(document.createTextNode(o.code));
         var hint = document.createElement('em');
-        hint.textContent = '复制';
+        hint.textContent = T('复制','Copy');
         cd.appendChild(hint);
         cd.addEventListener('click', function () { copyText(o.code); });
         m.appendChild(cd);
@@ -988,7 +1011,7 @@
 
       var t = document.createElement('div');
       t.className = 'st-rec__t';
-      t.textContent = '提现至' + w.channelText;
+      t.textContent = T('提现至' + w.channelText, 'To ' + w.channelText);
       m.appendChild(t);
 
       var sub = document.createElement('div');
@@ -1030,7 +1053,7 @@
       withdrawsEl.hidden = tab !== 'withdraws' && tab !== 'withdraw';
       if (recEmpty) {
         recEmpty.hidden = cur.length > 0;
-        recEmpty.textContent = tab === 'orders' ? '还没有兑换记录。' : '还没有提现记录。';
+        recEmpty.textContent = tab === 'orders' ? T('还没有兑换记录。','No redemption history yet.') : T('还没有提现记录。','No withdrawal history yet.');
       }
     }
 
@@ -1043,7 +1066,7 @@
           setWallet(r.body.wallet.fc, r.body.wallet.fcFrozen);
           paintItems();
         } else {
-          if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = '商品载入失败，请刷新重试。'; }
+          if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = T('商品载入失败，请刷新重试。','Could not load items. Refresh and retry.'); }
         }
       });
     }
@@ -1186,7 +1209,7 @@
       });
 
       empty.hidden = list.length > 0;
-      if (!list.length) empty.textContent = items.length ? '当前筛选下没有记录。' : '账户还没有任何资金变动。';
+      if (!list.length) empty.textContent = items.length ? T('当前筛选下没有记录。','Nothing under this filter.') : T('账户还没有任何资金变动。','No transactions on this account yet.');
     }
 
     function load() {
@@ -1202,8 +1225,8 @@
         if (!r.body || !r.body.ok) {
           empty.hidden = false;
           empty.textContent = r.status === 401
-            ? '登录状态已失效，请重新登录。'
-            : '明细载入失败，请刷新重试。';
+            ? T('登录状态已失效，请重新登录。','Your session expired. Please sign in again.')
+            : T('明细载入失败，请刷新重试。','Could not load the ledger. Refresh and retry.');
           return;
         }
         items = r.body.items || [];
@@ -1278,7 +1301,7 @@
         var a = document.createElement('a');
         a.className = 'ld-name';
         a.href = '/space?uid=' + encodeURIComponent(it.uid);
-        a.textContent = it.username || '未命名';
+        a.textContent = it.username || T('未命名','Unnamed');
         who.appendChild(a);
 
         if (isMe) {
@@ -1300,7 +1323,7 @@
         af.className = 'ld-af';
         af.textContent = it.affinity || 0;
         var afu = document.createElement('i');
-        afu.textContent = '好感';
+        afu.textContent = T('好感','Affinity');
         af.appendChild(afu);
 
         var fc = document.createElement('span');
@@ -1324,7 +1347,7 @@
       });
 
       empty.hidden = rows.length > 0;
-      empty.textContent = '榜单还没有数据。';
+      empty.textContent = T('榜单还没有数据。','No leaderboard data yet.');
     }
 
     function load() {
@@ -1337,7 +1360,7 @@
       getJSON('/api/ladder?by=' + by).then(function (r) {
         if (!r.body || !r.body.ok) {
           empty.hidden = false;
-          empty.textContent = '榜单载入失败，请刷新重试。';
+          empty.textContent = T('榜单载入失败，请刷新重试。','Could not load the leaderboard. Refresh and retry.');
           return;
         }
         data = r.body.items || [];
@@ -1370,22 +1393,22 @@
       var detail = form.querySelector('[name="detail"]');
       var text = (detail && detail.value || '').trim();
 
-      if (text.length < 5) { say('请填写详细描述，至少 5 个字'); return; }
-      if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+      if (text.length < 5) { say(T('请填写详细描述，至少 5 个字','Describe it in at least 5 characters')); return; }
+      if (btn) { btn.disabled = true; btn.textContent = T('提交中…','Submitting…'); }
 
       /* uid 完全由服务端按会话认定，前端不再传，避免冒名 */
       postJSON('/api/ticket', { type: type ? type.value : 'other', detail: text })
         .then(function (r) {
           if (r.body && r.body.ok) {
             form.reset();
-            say('工单已提交，可在「我的工单」查看进度');
+            say(T('工单已提交，可在「我的工单」查看进度','Ticket submitted — track it under My tickets'));
           } else {
-            say('提交失败：' + (r.body && r.body.error || '网络错误'));
+            say('提交失败：' + (r.body && r.body.error || T('网络错误','Network error')));
           }
         })
-        .catch(function () { say('网络连接失败，请重试'); })
+        .catch(function () { say(T('网络连接失败，请重试','Network error. Try again.')); })
         .then(function () {
-          if (btn) { btn.disabled = false; btn.textContent = '提交工单'; }
+          if (btn) { btn.disabled = false; btn.textContent = T('提交工单','Submit ticket'); }
         });
     });
   }

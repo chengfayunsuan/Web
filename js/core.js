@@ -17,6 +17,11 @@
      ============================================================ */
   var EN_PREFIX = location.pathname.indexOf('/en') === 0 ? '/en' : '';
 
+  /* core.js 由 /en 与中文页共用，凡是 JS 动态生成的文字都要过 T()，
+     否则英文页会冒出中文（静态 DOM 那份由 i18n-en.js 翻译，管不到这里）。 */
+  var IS_EN = EN_PREFIX !== '';
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   function gotoPath(path) {
     if (!EN_PREFIX) return path;
     if (path === '/') return '/en';
@@ -47,23 +52,23 @@
   };
 
   var THEME_LIST = [
-    { key: 'red', label: '主色', hint: '按钮、进度条、强调块、可选中的标记' },
-    { key: 'red-deep', label: '主色·深', hint: '按钮按下、印章描边、深一档的强调' },
-    { key: 'ink', label: '墨色', hint: '正文、边框、深色底块' },
-    { key: 'paper', label: '纸色', hint: '页面底色、卡片底' },
-    { key: 'paper-2', label: '纸色·深', hint: '次级底色、条纹、悬停' },
-    { key: 'gray', label: '次要灰', hint: '说明文字、编号、占位' }
+    { key: 'red', label: T('主色','Primary'), hint: T('按钮、进度条、强调块、可选中的标记','Buttons, progress bars, accents, selectable marks') },
+    { key: 'red-deep', label: T('主色·深','Primary · deep'), hint: T('按钮按下、印章描边、深一档的强调','Pressed buttons, stamp outlines, deeper accent') },
+    { key: 'ink', label: T('墨色','Ink'), hint: T('正文、边框、深色底块','Body text, borders, dark blocks') },
+    { key: 'paper', label: T('纸色','Paper'), hint: T('页面底色、卡片底','Page background, card base') },
+    { key: 'paper-2', label: T('纸色·深','Paper · deep'), hint: T('次级底色、条纹、悬停','Secondary fills, stripes, hover') },
+    { key: 'gray', label: T('次要灰','Muted grey'), hint: T('说明文字、编号、占位','Captions, numbering, placeholders') }
   ];
 
   /* 预设配色：每套只换主色与深色，墨色和纸色保持不动 */
   var THEME_PRESETS = [
-    { key: 'red', label: '正红', red: '#E0291E', deep: '#B31F16' },
-    { key: 'blue', label: '后台蓝', red: '#1D52E2', deep: '#1439A6' },
-    { key: 'green', label: '松绿', red: '#1F7A45', deep: '#145C33' },
-    { key: 'orange', label: '陶橙', red: '#C25A0F', deep: '#8F400A' },
-    { key: 'purple', label: '黛紫', red: '#6D33B0', deep: '#4C2380' },
-    { key: 'teal', label: '深海青', red: '#0F7C8C', deep: '#0A5A66' },
-    { key: 'ink', label: '皂黑', red: '#2A2822', deep: '#14130F' }
+    { key: 'red', label: T('正红','Red'), red: '#E0291E', deep: '#B31F16' },
+    { key: 'blue', label: T('后台蓝','Admin blue'), red: '#1D52E2', deep: '#1439A6' },
+    { key: 'green', label: T('松绿','Pine'), red: '#1F7A45', deep: '#145C33' },
+    { key: 'orange', label: T('陶橙','Clay'), red: '#C25A0F', deep: '#8F400A' },
+    { key: 'purple', label: T('黛紫','Plum'), red: '#6D33B0', deep: '#4C2380' },
+    { key: 'teal', label: T('深海青','Teal'), red: '#0F7C8C', deep: '#0A5A66' },
+    { key: 'ink', label: T('皂黑','Charcoal'), red: '#2A2822', deep: '#14130F' }
   ];
 
   function readCookie(name) {
@@ -186,36 +191,36 @@
   var HOT_KEY = 'cf-hotkeys';
 
   var NAV_USER = [
-    { k: '1', href: '/hall', t: '问卷大厅' },
-    { k: '2', href: '/earn', t: '赚积分' },
-    { k: '3', href: '/store', t: '兑换中心' },
-    { k: '4', href: '/ledger', t: '收支明细' },
-    { k: '5', href: '/ladder', t: '天梯榜' },
-    { k: '6', href: '/messages', t: '站内消息' },
-    { k: '7', href: '/support', t: '联系客服' },
-    { k: '8', href: '/settings', t: '账户设置' },
-    { k: '9', href: '/home', t: '账户首页' },
-    { k: '0', href: '/notices', t: '公告' }
+    { k: '1', href: '/hall', t: T('问卷大厅','Survey hall') },
+    { k: '2', href: '/earn', t: T('赚积分','Earn') },
+    { k: '3', href: '/store', t: T('兑换中心','Store') },
+    { k: '4', href: '/ledger', t: T('收支明细','Ledger') },
+    { k: '5', href: '/ladder', t: T('天梯榜','Leaderboard') },
+    { k: '6', href: '/messages', t: T('站内消息','Messages') },
+    { k: '7', href: '/support', t: T('联系客服','Support') },
+    { k: '8', href: '/settings', t: T('账户设置','Settings') },
+    { k: '9', href: '/home', t: T('账户首页','Home') },
+    { k: '0', href: '/notices', t: T('公告','Notices') }
   ];
 
   var NAV_ADMIN = [
-    { k: '1', href: '/admin', t: '后台概览' },
-    { k: '2', href: '/admin/users', t: '用户管理' },
-    { k: '3', href: '/admin/withdrawals', t: '提现审核' },
-    { k: '4', href: '/admin/orders', t: '兑换订单' },
-    { k: '5', href: '/admin/tickets', t: '工单' },
-    { k: '6', href: '/admin/surveys', t: '问卷管理' },
-    { k: '7', href: '/admin/items', t: '商品兑换' },
-    { k: '8', href: '/admin/messages', t: '公告' },
-    { k: '9', href: '/admin/moonetix', t: '广告墙' },
-    { k: '0', href: '/admin/traffic', t: '流量' }
+    { k: '1', href: '/admin', t: T('后台概览','Overview') },
+    { k: '2', href: '/admin/users', t: T('用户管理','Users') },
+    { k: '3', href: '/admin/withdrawals', t: T('提现审核','Withdrawals') },
+    { k: '4', href: '/admin/orders', t: T('兑换订单','Orders') },
+    { k: '5', href: '/admin/tickets', t: T('工单','Tickets') },
+    { k: '6', href: '/admin/surveys', t: T('问卷管理','Surveys') },
+    { k: '7', href: '/admin/items', t: T('商品兑换','Items') },
+    { k: '8', href: '/admin/messages', t: T('公告','Notices') },
+    { k: '9', href: '/admin/moonetix', t: T('广告墙','Offerwalls') },
+    { k: '0', href: '/admin/traffic', t: T('流量','Traffic') }
   ];
 
   /* 反引号键：数字键 1-9/0 已经排满了，它单独占一个「回首页」的位置。
      跟数字键同一套开关、同一份列表，只是键位固定（它不是字母数字，输入框里也绑不了）。 */
   var NAV_FIXED = {
-    user: { href: '/home', t: '回账户首页', k: '~' },
-    admin: { href: '/admin', t: '回后台概览', k: '~' }
+    user: { href: '/home', t: T('回账户首页','Back to account'), k: '~' },
+    admin: { href: '/admin', t: T('回后台概览','Back to overview'), k: '~' }
   };
 
   function loadHot() {
@@ -381,7 +386,7 @@
       CF.cache.clear();
       if (!out.disabled) {
         out.disabled = true;
-        out.textContent = '退出中';
+        out.textContent = T('退出中','Signing out…');
         fetch('/api/auth/logout', { method: 'POST' })
           .catch(function () {})
           .then(function () { location.replace(gotoPath('/')); });
@@ -618,14 +623,14 @@
     var text = document.createElement('span');
     text.className = 'res-bar__t';
     text.textContent = banned
-      ? '账户已被封禁：参与问卷、兑换与提现均已停用，只能提交工单与查看消息。'
-      : '账户已被冻结：参与问卷、兑换与提现均已暂停，可提交工单说明情况。';
+      ? T('账户已被封禁：参与问卷、兑换与提现均已停用，只能提交工单与查看消息。','This account is banned: surveys, redemption and withdrawals are all disabled. You can still open tickets and read messages.')
+      : T('账户已被冻结：参与问卷、兑换与提现均已暂停，可提交工单说明情况。','This account is frozen: surveys, redemption and withdrawals are paused. Open a ticket to explain your situation.');
     bar.appendChild(text);
 
     var link = document.createElement('a');
     link.className = 'res-bar__a';
     link.href = gotoPath('/support');
-    link.textContent = '提交工单 →';
+    link.textContent = T('提交工单 →','Open a ticket →');
     bar.appendChild(link);
 
     document.body.insertBefore(bar, document.body.firstChild);
@@ -739,7 +744,7 @@
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'mo__x';
-    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.setAttribute('aria-label', T('关闭','Close'));
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', closeModal);
     head.appendChild(closeBtn);
@@ -766,13 +771,13 @@
     var cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.className = 'mo__btn mo__btn--ghost';
-    cancel.textContent = opts.cancelText || '取消';
+    cancel.textContent = opts.cancelText || T('取消','Cancel');
     cancel.addEventListener('click', closeModal);
 
     var ok = document.createElement('button');
     ok.type = 'submit';
     ok.className = 'mo__btn mo__btn--main';
-    ok.textContent = opts.submitText || '确认';
+    ok.textContent = opts.submitText || T('确认','Confirm');
 
     if (!opts.hideCancel) foot.appendChild(cancel);
     foot.appendChild(ok);
@@ -783,7 +788,7 @@
       setBusy: function (busy) {
         ok.disabled = !!busy;
         if (cancel) cancel.disabled = !!busy;
-        ok.textContent = busy ? (opts.busyText || '处理中…') : (opts.submitText || '确认');
+        ok.textContent = busy ? (opts.busyText || T('处理中…','Working…')) : (opts.submitText || T('确认','Confirm'));
       },
       setError: function (text) {
         if (!text) { msg.hidden = true; return; }
@@ -893,11 +898,15 @@
     var where = d.org ? '（' + d.org + (d.country ? ' · ' + d.country : '') + '）' : (d.country ? '（' + d.country + '）' : '');
     CF.modal({
       kicker: 'NETWORK',
-      title: '这个网络看起来像代理 / VPN',
-      desc: '当前出口 IP 属于' + (d.kind === 'proxy' ? '代理或 VPN 网络' : '数据中心机房') + where
-        + '。站内的问卷任务要求真实本地网络，用这种网络点开问卷会被判定为异常，账号直接封禁，并且扣 8 点经验。',
+      title: T('这个网络看起来像代理 / VPN','This network looks like a proxy or VPN'),
+      desc: IS_EN
+        ? 'Your exit IP belongs to ' + (d.kind === 'proxy' ? 'a proxy or VPN network' : 'a data-centre network') + where
+          + '. In-site surveys require a real local connection; opening one over this network is flagged as abnormal, '
+          + 'the account is banned outright, and 8 experience points are deducted.'
+        : '当前出口 IP 属于' + (d.kind === 'proxy' ? '代理或 VPN 网络' : '数据中心机房') + where
+          + '。站内的问卷任务要求真实本地网络，用这种网络点开问卷会被判定为异常，账号直接封禁，并且扣 8 点经验。',
       hideCancel: true,
-      submitText: '我知道了',
+      submitText: T('我知道了','Got it'),
       fields: []
     });
   }

@@ -5,8 +5,16 @@
 (function () {
   'use strict';
 
-  var ROLES = { owner: '站长', admin: '管理员', premium: '大会员', user: '用户' };
-  var STATUS = { active: '正常', frozen: '已冻结', banned: '已封禁' };
+  /* /en 与中文页共用这一份脚本，动态生成的文字都要过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
+  var ROLES = IS_EN
+    ? { owner: 'Owner', admin: 'Admin', premium: 'Premium', user: 'Member' }
+    : { owner: '站长', admin: '管理员', premium: '大会员', user: '用户' };
+  var STATUS = IS_EN
+    ? { active: 'Active', frozen: 'Frozen', banned: 'Banned' }
+    : { active: '正常', frozen: '已冻结', banned: '已封禁' };
   var BIO_MAX = 200;
 
   var app = document.getElementById('app');
@@ -50,7 +58,7 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function () {
       logoutBtn.disabled = true;
-      logoutBtn.textContent = '退出中';
+      logoutBtn.textContent = T('退出中','Signing out…');
       fetch('/api/auth/logout', { method: 'POST' })
         .catch(function () {})
         .then(function () { location.replace('/'); });
@@ -87,18 +95,18 @@
       .then(function (r) {
         if (r.ok && r.body.ok) {
           paintBio(r.body.user.bio);
-          say('个人简介已保存');
+          say(T('个人简介已保存','Bio saved.'));
         } else if (r.body && r.body.error === 'unauthorized') {
           paintBio(bioSaved);
-          say('登录状态已失效，请刷新页面');
+          say(T('登录状态已失效，请刷新页面','Session expired. Please refresh.'));
         } else {
           paintBio(bioSaved);
-          say('保存失败，请重试');
+          say(T('保存失败，请重试','Save failed. Try again.'));
         }
       })
       .catch(function () {
         paintBio(bioSaved);
-        say('网络连接失败，简介未保存');
+        say(T('网络连接失败，简介未保存','Network error — bio not saved.'));
       });
   }
 
@@ -180,7 +188,7 @@
   /* ---------- 渲染 ---------- */
 
   function render(user) {
-    $('navName').textContent = user.username || '未命名';
+    $('navName').textContent = user.username || T('未命名','Unnamed');
     if (window.CF && CF.amount) CF.amount($('navBal'), user.fc);
     else $('navBal').textContent = trimNum(user.fc);
 
@@ -189,7 +197,7 @@
     if (brand && (user.role === 'owner' || user.role === 'admin')) brand.setAttribute('href', '/admin');
 
     $('uidText').textContent = user.uid;
-    $('userName').textContent = user.username || '未命名';
+    $('userName').textContent = user.username || T('未命名','Unnamed');
     $('joinedAt').textContent = fmtDate(user.createdAt);
     $('statusText').textContent = STATUS[user.status] || user.status;
 
@@ -239,7 +247,7 @@
     affinity: 12,
     exp: 520,
     level: 3,
-    bio: '这里填写个人简介。这段文字用于检查较长内容在版面中的换行表现。',
+    bio: T('这里填写个人简介。这段文字用于检查较长内容在版面中的换行表现。','Write your bio here. This sentence is long on purpose, to check how wrapping looks.'),
     createdAt: '2026-11-16T08:00:46Z'
   };
 
@@ -272,7 +280,7 @@
         if (!items.length) {
           var p0 = document.createElement('p');
           p0.className = 'hm-notice__i';
-          p0.textContent = '暂时没有公告。';
+          p0.textContent = T('暂时没有公告。','No announcements yet.');
           box.appendChild(p0);
           return;
         }
@@ -296,7 +304,10 @@
         var more = document.createElement('a');
         more.className = 'hm-notice__more';
         more.href = '/notices';
-        more.textContent = items.length > 2 ? '查看全部 ' + items.length + ' 条公告 →' : '查看公告 →';
+        more.textContent = items.length > 2
+          ? T('查看全部 ' + items.length + ' 条公告 →',
+              'View all ' + items.length + ' announcements →')
+          : T('查看公告 →','View announcements →');
         box.appendChild(more);
       })
       .catch(function () { box.textContent = ''; });
@@ -325,7 +336,7 @@
       if (!data) return;
       if (!data.ok || !data.user) {
         loading.hidden = true;
-        if (!cached) say('账户载入失败，请刷新页面重试。');
+        if (!cached) say(T('账户载入失败，请刷新页面重试。','Could not load your account. Refresh and try again.'));
         return;
       }
       if (window.CF && CF.cache) CF.cache.set(data.user);
@@ -333,6 +344,6 @@
     })
     .catch(function () {
       loading.hidden = true;
-      if (!cached) say('网络连接失败，请检查网络后刷新。');
+      if (!cached) say(T('网络连接失败，请检查网络后刷新。','Network error — check your connection and refresh.'));
     });
 })();

@@ -10,8 +10,12 @@
   var EN = /^\/en(\/|$)/.test(location.pathname);
   function T(zh, en) { return EN ? en : zh; }
 
-  var ROLES = { owner: '站长', admin: '管理员', premium: '大会员', user: '用户' };
-  var STATUS = { active: '正常', frozen: '已冻结', banned: '已封禁' };
+  var ROLES = EN
+    ? { owner: 'Owner', admin: 'Admin', premium: 'Premium', user: 'Member' }
+    : { owner: T('站长','Owner'), admin: T('管理员','Admin'), premium: T('大会员','Premium'), user: T('用户','Member') };
+  var STATUS = EN
+    ? { active: 'Active', frozen: 'Frozen', banned: 'Banned' }
+    : { active: T('正常','Active'), frozen: T('已冻结','Frozen'), banned: T('已封禁','Banned') };
 
   var app = document.getElementById('app');
   var loading = document.getElementById('loading');
@@ -51,7 +55,7 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function () {
       logoutBtn.disabled = true;
-      logoutBtn.textContent = '退出中';
+      logoutBtn.textContent = T('退出中','Signing out…');
       fetch('/api/auth/logout', { method: 'POST' })
         .catch(function () {})
         .then(function () { location.replace('/'); });
@@ -83,12 +87,14 @@
 
   /* ---------- 兑换记录 ---------- */
 
-  var ORDER_ST = { paid: '已完成', pending: '待发货', refunded: '已退款' };
+  var ORDER_ST = EN
+    ? { paid: 'Completed', pending: 'Pending', refunded: 'Refunded' }
+    : { paid: T('已完成','Completed'), pending: T('待发货','Pending'), refunded: T('已退款','Refunded') };
 
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { say('已复制'); })
-        .catch(function () { say('复制失败，请手动选中'); });
+      navigator.clipboard.writeText(text).then(function () { say(T('已复制','Copied')); })
+        .catch(function () { say(T('复制失败，请手动选中','Copy failed — please select it manually')); });
       return;
     }
     var ta = document.createElement('textarea');
@@ -97,12 +103,14 @@
     ta.style.opacity = '0';
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); say('已复制'); } catch (e) { say('复制失败，请手动选中'); }
+    try { document.execCommand('copy'); say(T('已复制','Copied')); } catch (e) { say(T('复制失败，请手动选中','Copy failed — please select it manually')); }
     document.body.removeChild(ta);
   }
 
   /* 封禁记录：后台每次改状态都会留痕，见 /api/user/bans */
-  var BAN_LABEL = { banned: '封禁', frozen: '冻结', active: '解除' };
+  var BAN_LABEL = EN
+    ? { banned: 'Banned', frozen: 'Frozen', active: 'Restored' }
+    : { banned: T('封禁','Banned'), frozen: T('冻结','Frozen'), active: T('解除','Restored') };
 
   function loadBans() {
     var list = $('banList');
@@ -140,7 +148,8 @@
 
           var who = document.createElement('span');
           who.className = 'ban__t';
-          who.textContent = '由' + (it.by || '管理员') + '操作';
+          who.textContent = T('由' + (it.by || '管理员') + '操作',
+            'by ' + (it.by || 'an admin'));
           hd.appendChild(who);
 
           li.appendChild(hd);
@@ -149,7 +158,7 @@
           why.className = 'ban__r';
           why.textContent = it.reason
             ? it.reason
-            : (it.to === 'active' ? '账户已恢复正常。' : '未填写原因。');
+            : (it.to === 'active' ? T('账户已恢复正常。','Your account access has been restored.') : T('未填写原因。','No reason given.'));
           li.appendChild(why);
 
           list.appendChild(li);
@@ -160,8 +169,8 @@
 
   /* 我的工单 */
   var TK_LABEL = {
-    account: '账户与登录', balance: '余额与提现', survey: '问卷与奖励',
-    report: '举报与申诉', other: '其他'
+    account: T('账户与登录','Account & sign-in'), balance: T('余额与提现','Balance & withdrawals'), survey: T('问卷与奖励','Surveys & rewards'),
+    report: T('举报与申诉','Reports & appeals'), other: T('其他','Other')
   };
 
   function loadTickets() {
@@ -186,12 +195,12 @@
 
           var tag = document.createElement('b');
           tag.className = 'tk__tag ' + (t.status === 'closed' ? 'is-closed' : 'is-open');
-          tag.textContent = t.status === 'closed' ? '已处理' : '处理中';
+          tag.textContent = t.status === 'closed' ? T('已处理','Resolved') : T('处理中','In progress');
           hd.appendChild(tag);
 
           var kind = document.createElement('span');
           kind.className = 'tk__at';
-          kind.textContent = TK_LABEL[t.type] || '其他';
+          kind.textContent = TK_LABEL[t.type] || T('其他','Other');
           hd.appendChild(kind);
 
           var at = document.createElement('span');
@@ -209,7 +218,7 @@
           if (t.reply) {
             var re = document.createElement('p');
             re.className = 'tk__re';
-            re.textContent = '站长回复：' + t.reply;
+            re.textContent = T('站长回复：', 'Owner reply: ') + t.reply;
             li.appendChild(re);
           }
 
@@ -260,7 +269,7 @@
           if (o.code) {
             code.className = 'tb__code';
             code.textContent = o.code;
-            code.title = '点击复制';
+            code.title = T('点击复制','Click to copy');
             code.addEventListener('click', function () { copyText(o.code); });
           } else {
             code.textContent = o.sn;
@@ -284,7 +293,7 @@
   function render(u) {
     current = u;
 
-    $('navName').textContent = u.username || '未命名';
+    $('navName').textContent = u.username || T('未命名','Unnamed');
     setAmt($('navBal'), u.fc);
 
     /* 站长与管理员点左上角Chengfa进后台 */
@@ -292,7 +301,7 @@
     if (brand && (u.role === 'owner' || u.role === 'admin')) brand.setAttribute('href', '/admin');
 
     $('setUid').textContent = u.uid;
-    $('setUser').textContent = u.username || '未命名';
+    $('setUser').textContent = u.username || T('未命名','Unnamed');
     $('setStatus').textContent = STATUS[u.status] || u.status;
     $('setJoined').textContent = fmtFull(u.createdAt);
 
@@ -307,7 +316,7 @@
     var tag = $('emailTag');
     if (tag) {
       tag.hidden = !u.email;
-      tag.textContent = u.emailVerified ? '已验证' : '未验证';
+      tag.textContent = u.emailVerified ? T('已验证','Verified') : T('未验证','Not verified');
       tag.classList.toggle('is-ok', !!u.emailVerified);
     }
     var vbtn = $('emailVerifyBtn');
@@ -321,9 +330,9 @@
     $('stLevel').textContent = u.level;
     $('stAff').textContent = u.affinity;
 
-    $('curIp').textContent = u.ip || '未记录';
-    $('curNet').textContent = u.net || '未记录';
-    $('lastLogin').textContent = u.lastLoginAt ? fmtFull(u.lastLoginAt) : '未记录';
+    $('curIp').textContent = u.ip || T('未记录','None');
+    $('curNet').textContent = u.net || T('未记录','None');
+    $('lastLogin').textContent = u.lastLoginAt ? fmtFull(u.lastLoginAt) : T('未记录','None');
   }
 
   /* ---------- 关注与粉丝：两行数字与小窗口 ---------- */
@@ -369,7 +378,7 @@
   }
 
   function emptyText(scope) {
-    return scope === 'followers' ? '还没有人关注你。' : '还没有关注任何人。';
+    return scope === 'followers' ? T('还没有人关注你。','No followers yet.') : T('还没有关注任何人。','Not following anyone yet.');
   }
 
   function relItem(it) {
@@ -386,12 +395,12 @@
 
     var name = document.createElement('span');
     name.className = 'rel__name';
-    name.textContent = it.username || '未命名';
+    name.textContent = it.username || T('未命名','Unnamed');
 
     var role = document.createElement('span');
     role.className = 'face__role rel__role';
     role.setAttribute('data-role', it.role || 'user');
-    role.textContent = ROLES[it.role] || it.role || '用户';
+    role.textContent = ROLES[it.role] || it.role || T('用户','Member');
 
     var lv = document.createElement('span');
     lv.className = 'rel__lv';
@@ -414,7 +423,7 @@
       act.type = 'button';
       act.setAttribute('data-uid', it.uid);
       act.setAttribute('data-following', it.following ? '1' : '0');
-      act.textContent = it.following ? '取消关注' : '关注';
+      act.textContent = it.following ? T('取消关注','Unfollow') : T('关注','Follow');
       li.appendChild(act);
     }
 
@@ -449,8 +458,8 @@
         if (!r.body || !r.body.ok) {
           relEmpty.hidden = false;
           relEmpty.textContent = r.status === 401
-            ? '登录状态已失效，请重新登录。'
-            : '列表载入失败，稍后重试。';
+            ? T('登录状态已失效，请重新登录。','Your session expired. Please sign in again.')
+            : T('列表载入失败，稍后重试。','Could not load the list. Try again shortly.');
           return;
         }
 
@@ -476,7 +485,7 @@
         REL.busy = false;
         relMore.disabled = false;
         relEmpty.hidden = false;
-        relEmpty.textContent = '网络连接失败，请稍后刷新。';
+        relEmpty.textContent = T('网络连接失败，请稍后刷新。','Network error. Please refresh.');
       });
   }
 
@@ -534,24 +543,24 @@
           .then(function (r) {
             if (r.ok && r.body.ok) {
               btn.setAttribute('data-following', r.body.following ? '1' : '0');
-              btn.textContent = r.body.following ? '取消关注' : '关注';
+              btn.textContent = r.body.following ? T('取消关注','Unfollow') : T('关注','Follow');
               SOC.followers = r.body.followers;
               SOC.following = r.body.followees;
               paintSocial();
-              say(r.body.following ? '已关注该用户' : '已取消关注');
+              say(r.body.following ? T('已关注该用户','Now following') : T('已取消关注','Unfollowed'));
               return;
             }
             btn.disabled = false;
             var err = r.body && r.body.error;
-            if (err === 'unauthorized') say('登录状态已失效，请刷新页面');
-            else if (err === 'self') say('不能关注自己');
-            else if (err === 'restricted') say('该账户当前状态不可关注');
-            else if (err === 'too_many') say('关注人数已达上限');
-            else say('操作失败，请重试');
+            if (err === 'unauthorized') say(T('登录状态已失效，请刷新页面','Session expired. Refresh the page.'));
+            else if (err === 'self') say(T('不能关注自己','You cannot follow yourself.'));
+            else if (err === 'restricted') say(T('该账户当前状态不可关注','This account cannot be followed in its current state.'));
+            else if (err === 'too_many') say(T('关注人数已达上限','Follower limit reached.'));
+            else say(T('操作失败，请重试','Action failed. Try again.'));
           })
           .catch(function () {
             btn.disabled = false;
-            say('网络连接失败，操作未生效');
+            say(T('网络连接失败，操作未生效','Network error — nothing was changed.'));
           });
       });
     }
@@ -635,14 +644,14 @@
     err.hidden = true;
 
     if (!NAME_RE.test(val)) {
-      showErr('nameErr', '用户名需 2 至 20 个字符，可用中文、字母、数字、下划线或连字符。');
+      showErr('nameErr', T('用户名需 2 至 20 个字符，可用中文、字母、数字、下划线或连字符。','Username must be 2–20 characters: letters, digits, underscore or hyphen.'));
       $('newName').setAttribute('aria-invalid', 'true');
       return;
     }
 
     var btn = $('saveName');
     btn.disabled = true;
-    btn.textContent = '保存中';
+    btn.textContent = T('保存中','Saving…');
 
     fetch('/api/user/profile', {
       method: 'PATCH',
@@ -655,21 +664,21 @@
           var u = r.body.user || {};
           if (u.username) { current.username = u.username; render(current); }
           closeAll();
-          say('用户名已更新');
+          say(T('用户名已更新','Username updated.'));
         } else if (r.body && r.body.error === 'username_taken') {
-          showErr('nameErr', '这个用户名已被占用，换一个。');
+          showErr('nameErr', T('这个用户名已被占用，换一个。','That username is taken — try another.'));
         } else if (r.body && r.body.error === 'invalid_username') {
-          showErr('nameErr', '格式不符合要求，2 至 20 个字符，可用中文、字母、数字、下划线或连字符。');
+          showErr('nameErr', T('格式不符合要求，2 至 20 个字符，可用中文、字母、数字、下划线或连字符。','Invalid format: 2–20 characters, letters, digits, underscore or hyphen.'));
         } else if (r.body && r.body.error === 'unauthorized') {
-          showErr('nameErr', '登录状态已失效，请刷新页面。');
+          showErr('nameErr', T('登录状态已失效，请刷新页面。','Session expired. Please refresh.'));
         } else {
-          showErr('nameErr', '保存失败，请稍后重试。');
+          showErr('nameErr', T('保存失败，请稍后重试。','Save failed. Try again shortly.'));
         }
       })
-      .catch(function () { showErr('nameErr', '网络连接失败，未保存。'); })
+      .catch(function () { showErr('nameErr', T('网络连接失败，未保存。','Network error — not saved.')); })
       .then(function () {
         btn.disabled = false;
-        btn.textContent = '保存';
+        btn.textContent = T('保存','Save');
       });
   });
 
@@ -683,12 +692,12 @@
     var pw = $('emailPw').value;
     $('emailErr').hidden = true;
 
-    if (!EMAIL_RE.test(email)) { showErr('emailErr', '邮箱格式不对，检查一下。'); return; }
-    if (!pw) { showErr('emailErr', '请输入当前密码确认身份。'); return; }
+    if (!EMAIL_RE.test(email)) { showErr('emailErr', T('邮箱格式不对，检查一下。','That email address looks invalid.')); return; }
+    if (!pw) { showErr('emailErr', T('请输入当前密码确认身份。','Enter your current password to confirm.')); return; }
 
     var btn = $('saveEmail');
     btn.disabled = true;
-    btn.textContent = '保存中';
+    btn.textContent = T('保存中','Saving…');
 
     fetch('/api/user/email', {
       method: 'POST',
@@ -703,21 +712,21 @@
           if (u.email) { current.email = u.email; render(current); }
           $('emailPw').value = '';
           closeAll();
-          say('邮箱已更新，新邮箱待验证');
+          say(T('邮箱已更新，新邮箱待验证','Email updated — verify the new address.'));
           return;
         }
-        if (code === 'wrong_password') showErr('emailErr', '当前密码不正确。');
-        else if (code === 'email_taken') showErr('emailErr', '这个邮箱已被其他账号使用。');
-        else if (code === 'same_email') showErr('emailErr', '这就是当前邮箱，不用改。');
-        else if (code === 'invalid_email') showErr('emailErr', '邮箱格式不对，检查一下。');
-        else if (code === 'account_locked') showErr('emailErr', '账户当前状态不能修改资料，先提交工单。');
-        else if (code === 'unauthorized') showErr('emailErr', '登录状态已失效，请刷新页面。');
-        else showErr('emailErr', '保存失败，请稍后重试。');
+        if (code === 'wrong_password') showErr('emailErr', T('当前密码不正确。','Current password is incorrect.'));
+        else if (code === 'email_taken') showErr('emailErr', T('这个邮箱已被其他账号使用。','That email is already used by another account.'));
+        else if (code === 'same_email') showErr('emailErr', T('这就是当前邮箱，不用改。','That is already your current email.'));
+        else if (code === 'invalid_email') showErr('emailErr', T('邮箱格式不对，检查一下。','That email address looks invalid.'));
+        else if (code === 'account_locked') showErr('emailErr', T('账户当前状态不能修改资料，先提交工单。','This account cannot edit its profile — open a ticket first.'));
+        else if (code === 'unauthorized') showErr('emailErr', T('登录状态已失效，请刷新页面。','Session expired. Please refresh.'));
+        else showErr('emailErr', T('保存失败，请稍后重试。','Save failed. Try again shortly.'));
       })
-      .catch(function () { showErr('emailErr', '网络连接失败，未保存。'); })
+      .catch(function () { showErr('emailErr', T('网络连接失败，未保存。','Network error — not saved.')); })
       .then(function () {
         btn.disabled = false;
-        btn.textContent = '保存';
+        btn.textContent = T('保存','Save');
       });
   });
 
@@ -734,39 +743,41 @@
       $('vfErr').hidden = true;
       $('vfOk').hidden = true;
       vfSend.disabled = true;
-      vfSend.textContent = '发送中';
+      vfSend.textContent = T('发送中','Sending…');
 
       fetch('/api/user/email/code', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, body: d }; }); })
         .then(function (r) {
           var d = r.body || {};
           if (r.ok && d.ok) {
-            $('vfOk').textContent = '验证码已发到 ' + (d.email || '你的邮箱') + '，10 分钟内有效。';
+            $('vfOk').textContent = T(
+              '验证码已发到 ' + (d.email || '你的邮箱') + '，10 分钟内有效。',
+              'Code sent to ' + (d.email || 'your email') + '. It expires in 10 minutes.');
             $('vfOk').hidden = false;
             $('vfCode').focus();
             return;
           }
-          if (d.error === 'too_soon') { $('vfErr').textContent = '刚发过，' + (d.wait || 60) + ' 秒后再发。'; $('vfErr').hidden = false; return; }
-          if (d.error === 'too_many') { $('vfErr').textContent = d.message || '今天发太多了。'; $('vfErr').hidden = false; return; }
-          if (d.error === 'already_verified') { $('vfErr').textContent = '这个邮箱已经验证过了。'; $('vfErr').hidden = false; return; }
+          if (d.error === 'too_soon') { $('vfErr').textContent = T('刚发过，' + (d.wait || 60) + ' 秒后再发。', 'A code was just sent — wait ' + (d.wait || 60) + ' seconds.'); $('vfErr').hidden = false; return; }
+          if (d.error === 'too_many') { $('vfErr').textContent = d.message || T('今天发太多了。','Too many requests today.'); $('vfErr').hidden = false; return; }
+          if (d.error === 'already_verified') { $('vfErr').textContent = T('这个邮箱已经验证过了。','This email is already verified.'); $('vfErr').hidden = false; return; }
           if (d.error === 'mail_unconfigured') {
             /* 站长还没配发信服务：本地调试时后端会把码带回来，直接填进去 */
             if (d.devCode) {
               $('vfCode').value = d.devCode;
-              $('vfErr').textContent = '发信服务没配（本地调试模式），已把验证码填好。';
+              $('vfErr').textContent = T('发信服务没配（本地调试模式），已把验证码填好。','Mail is not configured (local debug) — the code has been filled in.');
             } else {
-              $('vfErr').textContent = '站长还没配发信服务，暂时发不出邮件。';
+              $('vfErr').textContent = T('站长还没配发信服务，暂时发不出邮件。','Mail is not configured yet, so no email can be sent.');
             }
             $('vfErr').hidden = false;
             return;
           }
-          $('vfErr').textContent = d.message || '发送失败，稍后再试。';
+          $('vfErr').textContent = d.message || T('发送失败，稍后再试。','Send failed. Try again later.');
           $('vfErr').hidden = false;
         })
-        .catch(function () { $('vfErr').textContent = '网络连接失败。'; $('vfErr').hidden = false; })
+        .catch(function () { $('vfErr').textContent = T('网络连接失败。','Network error.'); $('vfErr').hidden = false; })
         .then(function () {
           vfSend.disabled = false;
-          vfSend.textContent = '发送验证码';
+          vfSend.textContent = T('发送验证码','Send code');
         });
     });
   }
@@ -776,11 +787,11 @@
     $('vfErr').hidden = true;
 
     var code = $('vfCode').value.replace(/\D/g, '').slice(0, 6);
-    if (code.length !== 6) { $('vfErr').textContent = '验证码是 6 位数字。'; $('vfErr').hidden = false; return; }
+    if (code.length !== 6) { $('vfErr').textContent = T('验证码是 6 位数字。','The code is 6 digits.'); $('vfErr').hidden = false; return; }
 
     var btn = $('vfDone');
     btn.disabled = true;
-    btn.textContent = '校验中';
+    btn.textContent = T('校验中','Checking…');
 
     fetch('/api/user/email/verify', {
       method: 'POST',
@@ -793,20 +804,20 @@
         if (r.ok && d.ok) {
           if (d.user) { current = d.user; render(current); }
           closeAll();
-          say('邮箱已验证');
+          say(T('邮箱已验证','Email verified'));
           return;
         }
-        if (d.error === 'wrong_code') { $('vfErr').textContent = '验证码不对，还能试 ' + (d.left || 0) + ' 次。'; }
-        else if (d.error === 'expired') { $('vfErr').textContent = d.message || '验证码过期了，重新发一条。'; }
-        else if (d.error === 'too_many_tries') { $('vfErr').textContent = d.message || '试太多次了，重新发一条。'; }
-        else if (d.error === 'no_code') { $('vfErr').textContent = d.message || '先发一条验证码。'; }
-        else { $('vfErr').textContent = '验证失败，稍后再试。'; }
+        if (d.error === 'wrong_code') { $('vfErr').textContent = T('验证码不对，还能试 ' + (d.left || 0) + ' 次。', 'Incorrect code — ' + (d.left || 0) + ' attempts left.'); }
+        else if (d.error === 'expired') { $('vfErr').textContent = d.message || T('验证码过期了，重新发一条。','The code expired — request a new one.'); }
+        else if (d.error === 'too_many_tries') { $('vfErr').textContent = d.message || T('试太多次了，重新发一条。','Too many attempts — request a new code.'); }
+        else if (d.error === 'no_code') { $('vfErr').textContent = d.message || T('先发一条验证码。','Send a code first.'); }
+        else { $('vfErr').textContent = T('验证失败，稍后再试。','Verification failed. Try again later.'); }
         $('vfErr').hidden = false;
       })
-      .catch(function () { $('vfErr').textContent = '网络连接失败。'; $('vfErr').hidden = false; })
+      .catch(function () { $('vfErr').textContent = T('网络连接失败。','Network error.'); $('vfErr').hidden = false; })
       .then(function () {
         btn.disabled = false;
-        btn.textContent = '提交验证';
+        btn.textContent = T('提交验证','Submit');
       });
   });
 
@@ -831,23 +842,23 @@
     account_locked: 'Account status blocks this change. Open a ticket first.',
     unauthorized: 'Session expired. Refresh the page.'
   } : {
-    invalid_password: '新密码需 8 至 72 位。',
-    weak_password: '新密码要同时包含字母和数字。',
-    wrong_password: '当前密码不正确。',
-    same_password: '新密码和当前密码一样，换一个。',
-    password_required: '请输入当前密码。',
-    bad_code: '验证码是 6 位数字，检查一下邮件。',
-    no_code: '还没发验证码，先点「发送验证码」。',
-    wrong_code: '验证码不对，检查一下邮件。',
-    expired: '验证码过期了，重新发一条。',
-    too_many_tries: '试太多次了，重新发一条。',
-    too_soon: '刚发过一封，等一会儿再发。',
-    too_many: '今天 3 封已经发完了，明天再来。',
-    mail_unconfigured: '站长还没配发信服务，暂时发不出邮件。',
-    mail_failed: '邮件没发出去，稍后再试。',
-    no_email: '账户没绑邮箱，没法发验证码，先提交工单。',
-    account_locked: '账户当前状态不能修改密码，先提交工单。',
-    unauthorized: '登录状态已失效，请刷新页面。'
+    invalid_password: T('新密码需 8 至 72 位。','New password must be 8–72 characters.'),
+    weak_password: T('新密码要同时包含字母和数字。','New password needs both letters and digits.'),
+    wrong_password: T('当前密码不正确。','Current password is incorrect.'),
+    same_password: T('新密码和当前密码一样，换一个。','New password must differ from the current one.'),
+    password_required: T('请输入当前密码。','Enter your current password.'),
+    bad_code: T('验证码是 6 位数字，检查一下邮件。','The code is 6 digits — check your email.'),
+    no_code: T('还没发验证码，先点「发送验证码」。','No code sent yet — tap “Send code” first.'),
+    wrong_code: T('验证码不对，检查一下邮件。','Incorrect code — check your email.'),
+    expired: T('验证码过期了，重新发一条。','The code expired — request a new one.'),
+    too_many_tries: T('试太多次了，重新发一条。','Too many attempts — request a new code.'),
+    too_soon: T('刚发过一封，等一会儿再发。','A code was just sent — wait a moment.'),
+    too_many: T('今天 3 封已经发完了，明天再来。','You have used all 3 emails today. Try again tomorrow.'),
+    mail_unconfigured: T('站长还没配发信服务，暂时发不出邮件。','Mail is not configured yet, so no email can be sent.'),
+    mail_failed: T('邮件没发出去，稍后再试。','The email did not send. Try again later.'),
+    no_email: T('账户没绑邮箱，没法发验证码，先提交工单。','No email on this account — open a ticket.'),
+    account_locked: T('账户当前状态不能修改密码，先提交工单。','This account cannot change its password — open a ticket.'),
+    unauthorized: T('登录状态已失效，请刷新页面。','Session expired. Please refresh.')
   };
 
   /* 发送验证码：一个账号一天 3 封，验证邮箱 / 找回密码 / 改密码共用这份额度 */
@@ -887,7 +898,7 @@
           if (r.ok && d.ok) {
             var remain = d.left === undefined ? 2 : d.left;
             $('pwOk').textContent = T(
-              '验证码已发到 ' + (d.email || '注册邮箱') + '，10 分钟内有效。今天还剩 ' + remain + ' 次。',
+              '验证码已发到 ' + (d.email || T('注册邮箱','Account email')) + '，10 分钟内有效。今天还剩 ' + remain + ' 次。',
               'Code sent to ' + (d.email || 'your email') + '. Valid 10 minutes. ' + remain + ' left today.');
             $('pwOk').hidden = false;
             pwCooldown(60);
@@ -1053,13 +1064,13 @@
 
     var q = findInput.value.trim();
     if (!q) {
-      say('请输入 UID 或用户名。');
+      say(T('请输入 UID 或用户名。','Enter a UID or username.'));
       return;
     }
 
     finding = true;
     findBtn.disabled = true;
-    findBtn.textContent = '查找中';
+    findBtn.textContent = T('查找中','Searching…');
 
     fetch('/api/pub/user?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
       .then(function (res) {
@@ -1068,18 +1079,19 @@
       .then(function (r) {
         var err = r.body && r.body.error;
         if (r.status === 200 && r.body.ok && r.body.user) {
-          say('找到 UID ' + r.body.user.uid + '「' + r.body.user.username + '」，正在进入主页…');
+          say(T('找到 UID ' + r.body.user.uid + '「' + r.body.user.username + '」，正在进入主页…',
+        'Found UID ' + r.body.user.uid + ' (' + r.body.user.username + ') — opening profile…'));
           location.href = '/space?uid=' + r.body.user.uid;
         } else if (err === 'not_found') {
-          say('没有这个 UID 或用户名，检查一下再试。');
+          say(T('没有这个 UID 或用户名，检查一下再试。','No such UID or username.'));
         } else if (err === 'gone') {
-          say('该账户已注销，主页不再公开。');
+          say(T('该账户已注销，主页不再公开。','This account is closed.'));
         } else {
-          say('查找失败，请稍后重试。');
+          say(T('查找失败，请稍后重试。','Lookup failed. Try again later.'));
         }
       })
       .catch(function () {
-        say('网络连接失败，请检查网络后重试。');
+        say(T('网络连接失败，请检查网络后重试。','Network error — check your connection.'));
       })
       .then(function () {
         finding = false;
@@ -1101,12 +1113,12 @@
     exp: 520,
     level: 3,
     done: 7,
-    bio: '这里填写个人简介。',
+    bio: T('这里填写个人简介。','Write your bio here.'),
     email: '574366992@qq.com',
     createdAt: '2026-11-16T08:00:46Z',
     lastLoginAt: '2026-11-16T09:30:00Z',
     ip: '203.0.113.24',
-    net: 'CN · 浙江 · 电信'
+    net: T('CN · 浙江 · 电信', 'US · Oregon · Comcast')
   };
 
   /* 币种切换按钮由 config.js 全局绑定，无需此处处理 */
@@ -1146,7 +1158,7 @@
       if (!data) return;
       if (!data.ok || !data.user) {
         loading.hidden = true;
-        if (!cached) say('账户载入失败，请刷新页面重试。');
+        if (!cached) say(T('账户载入失败，请刷新页面重试。','Could not load your account. Refresh and try again.'));
         return;
       }
       if (window.CF && CF.cache) CF.cache.set(data.user);
@@ -1173,6 +1185,6 @@
     })
     .catch(function () {
       loading.hidden = true;
-      if (!cached) say('网络连接失败，请检查网络后刷新。');
+      if (!cached) say(T('网络连接失败，请检查网络后刷新。','Network error — check your connection and refresh.'));
     });
 })();
