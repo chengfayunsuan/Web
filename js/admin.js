@@ -118,7 +118,7 @@
     cdk_redeem: '兑换 CDK', admin_adjust: '人工调整', penalty: '违规扣罚'
   };
   var CHANNEL = { alipay: '支付宝', wechat: '微信', paypal: 'PayPal', payoneer: 'Payoneer' };
-  var TICKET_TYPE = { account: '账户与登录', balance: '余额与提现', survey: '问卷与奖励', report: '举报与申诉', other: '其他' };
+  var TICKET_TYPE = { account: '账户与登录', balance: '余额与提现', survey: '问卷与奖励', report: '举报与申诉', other: '其他', feedback: '公告建议' };
 
   /* ---------- 预览数据 ---------- */
 
