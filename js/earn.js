@@ -5,6 +5,10 @@
 (function () {
   'use strict';
 
+  /* /en 与中文页共用这一份脚本，JS 生成的文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   var $ = function (id) { return document.getElementById(id); };
 
   var toastEl = $('toast');
@@ -61,7 +65,7 @@
     var name = $('navName');
     if (bal) money(bal, user.fc);
     if (name) {
-      name.textContent = user.username || '我';
+      name.textContent = user.username || T('我','Me');
       if (user.uid) name.href = '/space?uid=' + encodeURIComponent(user.uid);
     }
     money($('erFc'), user.fc);
@@ -79,35 +83,35 @@
 
     if (!wall) {
       state.className = 'er-wall__st';
-      state.innerHTML = dot + '取不到状态，刷新试试';
+      state.innerHTML = dot + T('取不到状态，刷新试试','Could not read status — try refreshing');
       return;
     }
 
     if (wall.demo) {
       if (!wall.canTest) {
-        title.textContent = '广告墙还没开放';
-        desc.textContent = '接入第三方服务商之后，这里会出现可做的任务。现在的账户、问卷、兑换都不受影响——' +
-          '问卷大厅和兑换码照常能用。';
+        title.textContent = T('广告墙还没开放','The offerwall is not open yet');
+        desc.textContent = T('接入第三方服务商之后，这里会出现可做的任务。现在的账户、问卷、兑换都不受影响——','Once a third-party provider is connected, tasks will appear here. Accounts, surveys and redemption are unaffected —') +
+          T('问卷大厅和兑换码照常能用。','the survey hall and redeem codes work as usual.');
         state.className = 'er-wall__st';
-        state.innerHTML = dot + 'COMING / 待开放';
+        state.innerHTML = dot + T('COMING / 待开放','COMING / Soon');
         var openBtn = $('mtxOpen');
         if (openBtn) {
           openBtn.disabled = true;
-          openBtn.textContent = '尚未开放';
+          openBtn.textContent = T('尚未开放','Not open yet');
         }
         return;
       }
-      title.textContent = '模拟墙（尚未接入真实服务商）';
-      desc.textContent = '还没有配置 Moonetix 的 App ID 与签名密钥，这里先用站内模拟墙跑通整条链路：' +
-        '点开墙、完成一件任务、看它走回调入账。配好密钥后这一页自动切到真实广告墙。';
+      title.textContent = T('模拟墙（尚未接入真实服务商）','Simulated wall (no real provider yet)');
+      desc.textContent = T('还没有配置 Moonetix 的 App ID 与签名密钥，这里先用站内模拟墙跑通整条链路：','Moonetix App ID and signing key are not configured yet, so an in-site simulated wall exercises the whole path:') +
+        T('点开墙、完成一件任务、看它走回调入账。配好密钥后这一页自动切到真实广告墙。','open the wall, finish a task, watch the callback credit. Once keys are set, this page switches to the real wall automatically.');
       state.className = 'er-wall__st is-demo';
-      state.innerHTML = dot + 'DEMO / 模拟模式（仅站长可见）';
+      state.innerHTML = dot + T('DEMO / 模拟模式（仅站长可见）','DEMO / simulation (owner only)');
     } else {
-      title.textContent = 'Moonetix 广告墙已接入';
-      desc.textContent = '链接由服务端用你的 UID 与签名盐生成，墙里显示的是与你的地区和设备匹配的任务。' +
-        '完成后奖励由服务商回调本站入账，重复回调只入一次。';
+      title.textContent = T('Moonetix 广告墙已接入','Moonetix offerwall connected');
+      desc.textContent = T('链接由服务端用你的 UID 与签名盐生成，墙里显示的是与你的地区和设备匹配的任务。','The link is signed server-side with your UID; the wall shows tasks matched to your region and device.') +
+        T('完成后奖励由服务商回调本站入账，重复回调只入一次。','Rewards are credited by provider callback; duplicate callbacks credit only once.');
       state.className = 'er-wall__st is-live';
-      state.innerHTML = dot + 'LIVE / 已接入';
+      state.innerHTML = dot + T('LIVE / 已接入','LIVE / connected');
     }
   }
 
@@ -134,21 +138,21 @@
     var dot = '<span class="er-dot"></span>';
 
     if (code === 'account_locked') {
-      if (title) title.textContent = '账户受限，广告墙暂不可用';
-      if (desc) desc.textContent = '冻结或封禁状态下不能参与广告墙。设置页的封禁记录里能看到原因，' +
-        '觉得有误可以在联系客服提交工单。';
-      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + 'LIMITED / 账户受限'; }
+      if (title) title.textContent = T('账户受限，广告墙暂不可用','Account restricted — the offerwall is unavailable');
+      if (desc) desc.textContent = T('冻结或封禁状态下不能参与广告墙。设置页的封禁记录里能看到原因，','Frozen or banned accounts cannot use the offerwall. The ban log in settings shows why —') +
+        T('觉得有误可以在联系客服提交工单。','open a ticket via support if you believe it is wrong.');
+      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + T('LIMITED / 账户受限','LIMITED / restricted'); }
     } else if (code === 'network') {
-      if (title) title.textContent = '没连上服务端';
-      if (desc) desc.textContent = '刷新页面重试。一直失败可以到联系客服反馈。';
-      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + 'OFFLINE / 连接失败'; }
+      if (title) title.textContent = T('没连上服务端','Could not reach the server');
+      if (desc) desc.textContent = T('刷新页面重试。一直失败可以到联系客服反馈。','Refresh and retry. If it keeps failing, tell support.');
+      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + T('OFFLINE / 连接失败','OFFLINE / failed'); }
     } else {
-      if (title) title.textContent = '接入状态获取失败';
-      if (desc) desc.textContent = '服务端没能返回广告墙链接。刷新重试；持续失败请提交工单。';
-      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + 'ERROR / 获取失败'; }
+      if (title) title.textContent = T('接入状态获取失败','Could not read connection status');
+      if (desc) desc.textContent = T('服务端没能返回广告墙链接。刷新重试；持续失败请提交工单。','The server did not return an offerwall link. Refresh; if it persists, open a ticket.');
+      if (state) { state.className = 'er-wall__st is-off'; state.innerHTML = dot + T('ERROR / 获取失败','ERROR / failed'); }
     }
 
-    if (openBtn) { openBtn.disabled = true; openBtn.textContent = '暂不可用'; }
+    if (openBtn) { openBtn.disabled = true; openBtn.textContent = T('暂不可用','Unavailable'); }
   }
 
   /* ---------- 记录 ---------- */
@@ -163,13 +167,14 @@
 
     if (!items.length) {
       empty.hidden = false;
-      if (sum) sum.textContent = '暂无记录';
+      if (sum) sum.textContent = T('暂无记录','No records');
       return;
     }
     empty.hidden = true;
 
     if (sum) {
-      sum.textContent = '在账 ' + (data.summary && data.summary.total ? data.summary.total : '0') + ' · 共 ' + items.length + ' 笔';
+      sum.textContent = T('在账 ' + (data.summary && data.summary.total ? data.summary.total : '0') + ' · 共 ' + items.length + ' 笔',
+        'Balance ' + (data.summary && data.summary.total ? data.summary.total : '0') + ' · ' + items.length + ' entries');
     }
 
     items.forEach(function (t) {
@@ -195,7 +200,7 @@
       if (t.status === 2) {
         var tag = document.createElement('span');
         tag.className = 'er-tag is-rev';
-        tag.textContent = '已冲正';
+        tag.textContent = T('已冲正','Reversed');
         title.appendChild(tag);
       }
       m.appendChild(title);
@@ -241,12 +246,12 @@
   /* ---------- 打开墙 ---------- */
 
   function openWall() {
-    if (busy || !wall) { say('正在准备链接，稍等一秒'); return; }
+    if (busy || !wall) { say(T('正在准备链接，稍等一秒','Preparing the link — one second')); return; }
     busy = true;
     var btn = $('mtxOpen');
     var old = btn.textContent;
     btn.disabled = true;
-    btn.textContent = '生成链接…';
+    btn.textContent = T('生成链接…','Generating…');
 
     loadWall().then(function () {
       btn.disabled = false;
@@ -259,7 +264,7 @@
         return;
       }
       window.open(wall.url, '_blank', 'noopener');
-      say('已在新的标签页打开，完成后回来刷新');
+      say(T('已在新的标签页打开，完成后回来刷新','Opened in a new tab — come back and refresh when done'));
     });
   }
 

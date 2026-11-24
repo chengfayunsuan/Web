@@ -5,6 +5,10 @@
 (function () {
   'use strict';
 
+  /* /en 与中文页共用这一份脚本，JS 生成的文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   var $ = function (id) { return document.getElementById(id); };
 
   function pad(n) { return n < 10 ? '0' + n : String(n); }
@@ -61,7 +65,7 @@
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.ok) {
-        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = '公告载入失败，请稍后刷新。'; }
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = T('公告载入失败，请稍后刷新。','Could not load notices. Refresh in a moment.'); }
         if (metaEl) metaEl.textContent = '';
         return;
       }
@@ -69,14 +73,15 @@
       var items = d.items || [];
       if (metaEl) {
         metaEl.textContent = items.length
-          ? '共 ' + items.length + ' 条 · 最新的排在最前'
-          : '暂时没有公告';
+          ? T('共 ' + items.length + ' 条 · 最新的排在最前',
+              items.length + (items.length === 1 ? ' notice · newest first' : ' notices · newest first'))
+          : T('暂时没有公告','No announcements yet.');
       }
 
       items.forEach(function (n) { listEl.appendChild(noticeEl(n)); });
       if (emptyEl) emptyEl.hidden = items.length > 0;
     })
     .catch(function () {
-      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = '网络连接失败，请稍后刷新。'; }
+      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = T('网络连接失败，请稍后刷新。','Network error. Refresh in a moment.'); }
     });
 })();

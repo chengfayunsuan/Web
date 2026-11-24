@@ -5,6 +5,10 @@
 (function () {
   'use strict';
 
+  /* /en 与中文页共用这一份脚本，JS 生成的文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   var $ = function (id) { return document.getElementById(id); };
 
   function pad(n) { return n < 10 ? '0' + n : String(n); }
@@ -55,7 +59,7 @@
     if (bal && window.CF) CF.amount(bal, me.fc);
     var name = $('navName');
     if (name) {
-      name.textContent = me.username || '我';
+      name.textContent = me.username || T('我','Me');
       if (me.uid) name.href = '/space?uid=' + encodeURIComponent(me.uid);
     }
   }
@@ -64,7 +68,7 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function () {
       logoutBtn.disabled = true;
-      logoutBtn.textContent = '退出中';
+      logoutBtn.textContent = T('退出中','Signing out…');
       fetch('/api/auth/logout', { method: 'POST' })
         .catch(function () {})
         .then(function () { location.replace(window.CF && CF.goto ? CF.goto('/') : '/'); });
@@ -72,9 +76,9 @@
   }
 
   var KIND = {
-    system: '系统',
-    admin: '管理员',
-    reward: '奖励'
+    system: T('系统','System'),
+    admin: T('管理员','Admin'),
+    reward: T('奖励','Reward')
   };
 
   var items = [];
@@ -87,7 +91,7 @@
     if (!unreadEl) return;
     unreadEl.textContent = String(n || 0);
     var badge = document.querySelector('.msg-tab[data-f="unread"]');
-    if (badge) badge.textContent = n > 0 ? '未读 ' + n : '未读';
+    if (badge) badge.textContent = n > 0 ? T('未读 ' + n, n + ' unread') : T('未读','Unread');
   }
 
   function rowEl(m) {
@@ -107,7 +111,7 @@
 
     var k = document.createElement('span');
     k.className = 'msg__k';
-    k.textContent = KIND[m.kind] || '消息';
+    k.textContent = KIND[m.kind] || T('消息','Messages');
 
     var t = document.createElement('span');
     t.className = 'msg__t';
@@ -164,8 +168,8 @@
     if (emptyEl) {
       emptyEl.hidden = list.length > 0;
       emptyEl.textContent = items.length
-        ? '未读消息已经看完了。'
-        : '还没有任何消息，兑换或提现的结果会出现在这里。';
+        ? T('未读消息已经看完了。','No unread messages left.')
+        : T('还没有任何消息，兑换或提现的结果会出现在这里。','No messages yet — redemption and withdrawal results show up here.');
     }
   }
 
@@ -176,7 +180,7 @@
         return;
       }
       if (!r.body || !r.body.ok) {
-        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = '消息载入失败，请刷新重试。'; }
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = T('消息载入失败，请刷新重试。','Could not load messages. Refresh and retry.'); }
         return;
       }
       items = r.body.items || [];
@@ -198,7 +202,7 @@
   if (readAllBtn) {
     readAllBtn.addEventListener('click', function () {
       var unread = items.filter(function (m) { return !m.read; }).length;
-      if (!unread) { say('没有未读消息'); return; }
+      if (!unread) { say(T('没有未读消息','No unread messages')); return; }
 
       readAllBtn.disabled = true;
       postJSON('/api/messages/read', { all: true }).then(function (r) {
@@ -207,9 +211,9 @@
           items.forEach(function (m) { m.read = true; });
           paintUnread(0);
           paint();
-          say('已全部标为已读');
+          say(T('已全部标为已读','All marked as read'));
         } else {
-          say('操作失败，请重试');
+          say(T('操作失败，请重试','Action failed. Try again.'));
         }
       });
     });

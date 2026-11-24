@@ -5,6 +5,10 @@
 (function () {
   'use strict';
 
+  /* /en 与中文页共用这一份脚本，页面文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   var $ = function (id) { return document.getElementById(id); };
 
   var id = Number(new URLSearchParams(location.search).get('id')) || 0;
@@ -57,7 +61,7 @@
     var tick = function () {
       if (!el) return;
       var s = secondsSince(startedAt);
-      el.textContent = '用时 ' + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+      el.textContent = T('用时 ', 'Time ') + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
     };
     tick();
     ticker = setInterval(tick, 1000);
@@ -100,7 +104,7 @@
     var total = paper ? paper.questions.length : 0;
     var done = Object.keys(picked()).length;
     var el = $('svProgress');
-    if (el) el.textContent = done + ' / ' + total + ' 题';
+    if (el) el.textContent = T(done + ' / ' + total + ' 题', 'Question ' + done + ' of ' + total);
     var btn = $('svSend');
     if (btn) btn.disabled = done < total;
   }
@@ -108,25 +112,25 @@
   /* ---------- 结果 ---------- */
 
   var KIND = {
-    success: '通过',
-    fail: '失败',
-    speed: '超速',
-    quota: '满额',
-    kick: '被踢',
-    reject: '打回',
-    rejected: '被打回',
-    bot: '机器作答'
+    success: T('通过','Passed'),
+    fail: T('失败','Failed'),
+    speed: T('超速','Too fast'),
+    quota: T('满额','Full'),
+    kick: T('被踢','Terminated'),
+    reject: T('打回','Rejected'),
+    rejected: T('被打回','Rejected'),
+    bot: T('机器作答','Bot detected')
   };
 
   var DESC = {
-    success: '答卷通过质检，奖励已经入账。',
-    fail: '问卷商那边接口出错，答卷没能保存。',
-    speed: '答得太快，被判超速作废。',
-    quota: '这份问卷的名额刚好在提交前收满了。',
-    kick: '答题过程中命中了排除条件，会话被终止。',
-    reject: '问卷商说这份要过质检，先入账，过一会儿再看结果。',
-    rejected: '质检没过：奖励已经扣回，经验 −8。',
-    bot: '表单里有不该被填的字段，被判成脚本作答。'
+    success: T('答卷通过质检，奖励已经入账。','Passed the quality check — reward credited.'),
+    fail: T('问卷商那边接口出错，答卷没能保存。','The provider API errored and this response was not saved.'),
+    speed: T('答得太快，被判超速作废。','Answered too quickly — voided for speed.'),
+    quota: T('这份问卷的名额刚好在提交前收满了。','This survey filled up just before you submitted.'),
+    kick: T('答题过程中命中了排除条件，会话被终止。','You hit an exclusion condition mid-survey; the session was terminated.'),
+    reject: T('问卷商说这份要过质检，先入账，过一会儿再看结果。','The provider flags this response for review — credited now, rechecked shortly.'),
+    rejected: T('质检没过：奖励已经扣回，经验 −8。','Quality check failed — the reward was reversed and 8 experience deducted.'),
+    bot: T('表单里有不该被填的字段，被判成脚本作答。','A field that should have stayed empty was filled — flagged as scripted.')
   };
 
   /* 回传码照行业惯例来（InnovateMR / Cint 那一套）：
@@ -153,11 +157,11 @@
   };
 
   var CODE_DESC = {
-    0: '接口异常',
-    1: '完成',
-    2: '中途终止',
-    3: '配额已满',
-    4: '质检终止'
+    0: T('接口异常','API error'),
+    1: T('完成','Completed'),
+    2: T('中途终止','Terminated'),
+    3: T('配额已满','Quota full'),
+    4: T('质检终止','QC terminated')
   };
 
   /* 结局要落到地址栏上（?status=1&pid=&tid= 这种），刷新也还是这张结果页。
@@ -231,7 +235,8 @@
     var kind = d.result || 'success';
     var code = d.code == null ? CODE[kind] : d.code;
     $('svResKind').textContent = 'STATUS ' + code + ' · '
-      + (CODE_DESC[code] || (KIND[kind] || kind)) + ' / ' + (d.elapsed || 0) + ' 秒';
+      + (CODE_DESC[code] || (KIND[kind] || kind)) + T(' / ' + (d.elapsed || 0) + ' 秒',
+        ' / ' + (d.elapsed || 0) + 's');
     $('svResTitle').textContent = KIND[kind] || kind;
     $('svResDesc').textContent = DESC[kind] || '';
 
@@ -253,7 +258,7 @@
 
     var tick = function () {
       var s = Math.max(0, Math.round((due - Date.now()) / 1000));
-      if (tip) tip.textContent = base + ' 质检还剩 ' + s + ' 秒。';
+      if (tip) tip.textContent = base + T(' 质检还剩 ' + s + ' 秒。', ' Quality check in ' + s + 's.');
     };
     tick();
     clearInterval(poller);
@@ -276,13 +281,15 @@
               keep.at = Date.now();
               try { sessionStorage.setItem(resKey(), JSON.stringify(keep)); } catch (e) {}
 
-              $('svResKind').textContent = 'STATUS 4 · 质检终止 / ' + (keep.elapsed || 0) + ' 秒';
-              $('svResTitle').textContent = '被打回了';
-              if (tip) tip.textContent = '质检没通过：奖励已经扣回，经验 −8。';
+              $('svResKind').textContent = T('STATUS 4 · 质检终止 / ' + (keep.elapsed || 0) + ' 秒',
+      'STATUS 4 · QC terminated / ' + (keep.elapsed || 0) + 's');
+              $('svResTitle').textContent = T('被打回了', 'Rejected');
+              if (tip) tip.textContent = T('质检没通过：奖励已经扣回，经验 −8。',
+      'Quality check failed — reward reversed, 8 experience deducted.');
               var ul = $('svSteps');
               if (ul) {
                 ul.insertAdjacentHTML('beforeend',
-                  '<li>质检结论：答卷无效</li><li>奖励冲正，经验 −8，参与记录标记为打回</li>');
+                  T('<li>质检结论：答卷无效</li><li>奖励冲正，经验 −8，参与记录标记为打回</li>','<li>Verdict: response invalid</li><li>Reward reversed, 8 experience deducted, the attempt is marked as rejected</li>'));
               }
               showCallbackStatus('rejected');
             }
@@ -311,7 +318,7 @@
         var bal = $('navBal');
         if (bal) bal.textContent = u.fc;
         var nm = $('navName');
-        if (nm) nm.textContent = u.username || '我';
+        if (nm) nm.textContent = u.username || T('我','Me');
       })
       .catch(function () {});
   }
@@ -338,8 +345,8 @@
       };
     }
 
-    $('svTitle').textContent = '答卷已提交';
-    $('svMeta').textContent = '结局由问卷商回调带回'
+    $('svTitle').textContent = T('答卷已提交','Response submitted');
+    $('svMeta').textContent = T('结局由问卷商回调带回','The outcome arrives via the provider callback')
       + (query.get('tid') ? ' · tid ' + query.get('tid') : '');
     var tm = $('svTimer');
     if (tm) tm.hidden = true;   /* 已经交卷了，别再挂个「用时 0 秒」 */
@@ -348,7 +355,7 @@
 
   function boot() {
     if (!id) {
-      note('地址里少了问卷编号。回大厅重新点一次。', true);
+      note(T('地址里少了问卷编号。回大厅重新点一次。','The survey ID is missing from the URL. Go back to the hall and click again.'), true);
       return;
     }
 
@@ -369,23 +376,23 @@
 
         if (!d.ok) {
           if (d.error === 'already_done' && d.reason === 'device') {
-            $('svTitle').textContent = '这台设备已经交过这份问卷';
-            $('svMeta').textContent = '同一台机器只能算一次，换网络也一样。';
-            note('想再做一份，得换台设备。', false);
+            $('svTitle').textContent = T('这台设备已经交过这份问卷','This device already completed this survey');
+            $('svMeta').textContent = T('同一台机器只能算一次，换网络也一样。','One response per machine — changing network does not help.');
+            note(T('想再做一份，得换台设备。','To do another, use a different device.'), false);
           } else if (d.error === 'already_done') {
-            $('svTitle').textContent = '这个网络已经交过这份问卷';
-            $('svMeta').textContent = '同一份问卷同一个 IP 只能参与一次。';
-            note('换了网络之后可以再来一次。', false);
+            $('svTitle').textContent = T('这个网络已经交过这份问卷','This network already completed this survey');
+            $('svMeta').textContent = T('同一份问卷同一个 IP 只能参与一次。','One response per survey per IP address.');
+            note(T('换了网络之后可以再来一次。','You can try again on a different network.'), false);
           } else if (d.error === 'risk_limited') {
-            $('svTitle').textContent = '开卷太频繁';
+            $('svTitle').textContent = T('开卷太频繁','Too many starts');
             $('svMeta').textContent = d.message || '';
           } else if (d.error === 'not_inline') {
-            $('svTitle').textContent = '这份问卷要跳转到问卷商页面';
-            $('svMeta').textContent = '回大厅点入口就能进去。';
+            $('svTitle').textContent = T('这份问卷要跳转到问卷商页面','This survey opens on the provider page');
+            $('svMeta').textContent = T('回大厅点入口就能进去。','Go back to the hall and use the entry there.');
           } else if (d.error === 'not_found') {
-            $('svTitle').textContent = '问卷不存在或已下架';
+            $('svTitle').textContent = T('问卷不存在或已下架','Survey missing or delisted');
           } else {
-            $('svTitle').textContent = '这份问卷现在打不开';
+            $('svTitle').textContent = T('这份问卷现在打不开','This survey cannot be opened right now');
             $('svMeta').textContent = d.error || '';
           }
           return;
@@ -398,8 +405,8 @@
 
         $('svTitle').textContent = paper.title;
         $('svMeta').textContent = [
-          d.questions.length + ' 题',
-          paper.durationMin ? '约 ' + paper.durationMin + ' 分钟' : '',
+          T(d.questions.length + ' 题', d.questions.length + (d.questions.length === 1 ? ' question' : ' questions')),
+          paper.durationMin ? T('约 ' + paper.durationMin + ' 分钟', 'about ' + paper.durationMin + ' min') : '',
           paper.provider || ''
         ].filter(Boolean).join(' · ');
         $('svReward').textContent = '+' + paper.price;
@@ -410,7 +417,7 @@
           req.textContent = '';
           var lab = document.createElement('span');
           lab.className = 'sv-req__k';
-          lab.textContent = '要求：';
+          lab.textContent = T('要求：', 'Requires:');
           req.appendChild(lab);
           /* 样本条件是问卷商写的原文，标记跳过翻译 */
           var rv = document.createElement('span');
@@ -424,7 +431,7 @@
         startTimer();
       })
       .catch(function () {
-        note('载入失败，刷新一下再试。', true);
+        note(T('载入失败，刷新一下再试。','Load failed. Refresh and retry.'), true);
       });
   }
 
@@ -437,7 +444,7 @@
       var pick = picked();
       var total = paper ? paper.questions.length : 0;
       if (Object.keys(pick).length < total) {
-        say('还有题目没选');
+        say(T('还有题目没选','Some questions are unanswered'));
         return;
       }
 
@@ -446,8 +453,8 @@
       });
 
       var btn = $('svSend');
-      if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
-      $('svTip').textContent = '正在交给问卷商核验…';
+      if (btn) { btn.disabled = true; btn.textContent = T('提交中…','Submitting…'); }
+      $('svTip').textContent = T('正在交给问卷商核验…','Verifying with the provider…');
 
       fetch('/api/surveys/submit', {
         method: 'POST',
@@ -461,23 +468,23 @@
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d || !d.ok) {
-            if (btn) { btn.disabled = false; btn.textContent = '提交答卷'; }
+            if (btn) { btn.disabled = false; btn.textContent = T('提交答卷','Submit'); }
             $('svTip').textContent = '';
             if (d && d.error === 'already_done') {
-              note('这个 IP 已经交过这份问卷了，换个网络可以再来一次。', true);
+              note(T('这个 IP 已经交过这份问卷了，换个网络可以再来一次。','This IP already completed this survey — try again on another network.'), true);
               $('svForm').hidden = true;
               return;
             }
             if (d && d.error === 'proxy_banned') {
-              note('检测到代理 / VPN 网络，账号已被封禁。去设置页看封禁记录。', true);
+              note(T('检测到代理 / VPN 网络，账号已被封禁。去设置页看封禁记录。','Proxy or VPN detected — the account is banned. See the ban log in settings.'), true);
               $('svForm').hidden = true;
               return;
             }
             if (d && d.error === 'risk_limited') {
-              note(d.message || '先歇一会儿再交。', true);
+              note(d.message || T('先歇一会儿再交。','Take a short break before submitting.'), true);
               return;
             }
-            say('提交失败：' + ((d && d.error) || '未知错误'));
+            say('提交失败：' + ((d && d.error) || T('未知错误','Unknown error')));
             return;
           }
           /* 打回时这笔钱确实到账了，revenue 照报价报；其余失败结局报 0 */
@@ -488,8 +495,8 @@
           if (window.CF && CF.cache) CF.cache.clear();
         })
         .catch(function () {
-          if (btn) { btn.disabled = false; btn.textContent = '提交答卷'; }
-          $('svTip').textContent = '网络不稳，再点一次提交。';
+          if (btn) { btn.disabled = false; btn.textContent = T('提交答卷','Submit'); }
+          $('svTip').textContent = T('网络不稳，再点一次提交。','The network is unstable — submit again.');
         });
     });
   }

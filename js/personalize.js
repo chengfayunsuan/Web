@@ -7,6 +7,10 @@
 (function () {
   'use strict';
 
+  /* /en 与中文页共用这一份脚本，界面文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
   var CF = window.CF;
   if (!CF || !CF.keys || !CF.theme) return;
 
@@ -67,9 +71,11 @@
     var sum = $('hkSum');
     if (!sum) return;
     cfg = cfg || CF.keys.read();
-    var text = '用户端 ' + CF.keys.list('user', cfg).length + ' 项';
-    if (isAdminCtx()) text += ' · 后台 ' + CF.keys.list('admin', cfg).length + ' 项';
-    sum.textContent = text + ' · 点「展开」改键';
+    var text = T('用户端 ' + CF.keys.list('user', cfg).length + ' 项',
+      'Frontend: ' + CF.keys.list('user', cfg).length);
+    if (isAdminCtx()) text += T(' · 后台 ' + CF.keys.list('admin', cfg).length + ' 项',
+      ' · Admin: ' + CF.keys.list('admin', cfg).length);
+    sum.textContent = text + T(' · 点「展开」改键', ' · expand to rebind');
   }
 
   /* 折页：默认收起，只占一行；点了才展开 */
@@ -82,7 +88,7 @@
     function setOpen(open) {
       body.hidden = !open;
       fold.classList.toggle('is-open', open);
-      btn.textContent = open ? '收起' : '展开';
+      btn.textContent = open ? T('收起','Collapse') : T('展开','Expand');
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
@@ -98,7 +104,7 @@
 
     var st = $('hkState');
     if (st) {
-      st.textContent = cfg.on === false ? '已关闭' : '已开启';
+      st.textContent = cfg.on === false ? T('已关闭','Off') : T('已开启','On');
       st.className = 'cz-tag' + (cfg.on === false ? '' : ' is-on');
     }
 
@@ -118,14 +124,14 @@
       var it = list[i];
       var isCatch = catching === it.href;
       var right = it.fixed
-        ? '<span class="hk__fix">固定</span>'
+        ? T('<span class="hk__fix">固定</span>','<span class="hk__fix">Fixed</span>')
         : '<button class="hk__b" type="button" data-hk-edit="' + esc(it.href) + '">' +
-          (isCatch ? '取消' : '改键') + '</button>';
+          (isCatch ? T('取消','Cancel') : T('改键','Rebind')) + '</button>';
 
       html += '<li class="hk__i' + (it.fixed ? ' is-fixed' : '') + (isCatch ? ' is-catching' : '') + '">' +
         '<span class="hk__k">' + esc(isCatch ? '?' : it.key) + '</span>' +
         '<span class="hk__x"><b>' + esc(it.t) + '</b><i>' + esc(it.href) + '</i></span>' +
-        '<span class="hk__d">' + (it.fixed ? '常驻' : '默认 ' + esc(it.def)) + '</span>' +
+        '<span class="hk__d">' + (it.fixed ? T('常驻','Always on') : '默认 ' + esc(it.def)) + '</span>' +
         right +
         '</li>';
     }
@@ -189,7 +195,7 @@
         cfg.on = this.checked;
         CF.keys.save(cfg);
         paintHot();
-        say(this.checked ? '数字键快捷导航已开启' : '数字键快捷导航已关闭');
+        say(this.checked ? T('数字键快捷导航已开启','Number-key navigation enabled') : T('数字键快捷导航已关闭','Number-key navigation disabled'));
       });
     }
 
@@ -200,7 +206,7 @@
         cfg[scope] = {};
         CF.keys.save(cfg);
         setCatching(null);
-        say(scope === 'admin' ? '后台键位已恢复默认' : '用户端键位已恢复默认');
+        say(scope === 'admin' ? T('后台键位已恢复默认','Admin keymap reset to default') : T('用户端键位已恢复默认','User keymap reset to default'));
       });
     }
 
@@ -218,7 +224,7 @@
       var href = catching;
       assignKey(href, ev.key.toLowerCase());
       setCatching(null);
-      say('已绑定到 ' + ev.key.toUpperCase() + ' 键');
+      say(T('已绑定到 ' + ev.key.toUpperCase() + ' 键', 'Bound to ' + ev.key.toUpperCase()));
     }, true);
   }
 
@@ -255,7 +261,7 @@
       html += '<li class="th-pal__i" data-th-row="' + it.key + '">' +
         '<span class="th-pal__x"><b>' + esc(it.label) + '</b><i>' + esc(it.hint) + '</i></span>' +
         '<input class="th-pal__c" type="color" value="' + esc(v) + '" data-th-color="' + it.key + '" aria-label="' + esc(it.label) + '">' +
-        '<input class="th-pal__h" type="text" value="' + esc(v) + '" maxlength="7" spellcheck="false" data-th-hex="' + it.key + '" aria-label="' + esc(it.label) + ' 色值">' +
+        '<input class="th-pal__h" type="text" value="' + esc(v) + '" maxlength="7" spellcheck="false" data-th-hex="' + it.key + '" aria-label="' + esc(it.label) + T(' 色值">', ' colour">') +
         '</li>';
     }
     box.innerHTML = html;
@@ -307,10 +313,10 @@
     var st = $('thState');
     if (!st) return;
     var saved = CF.theme.read(thScope);
-    var side = thScope === 'admin' ? '后台' : '前台';
-    var txt = side + '默认配色';
-    if (saved) txt = side + '自定义 · 已保存';
-    if (dirtyNow) txt = '有未保存的改动';
+    var side = thScope === 'admin' ? T('后台','Admin') : T('前台','Frontend');
+    var txt = side + T('默认配色','Default palette');
+    if (saved) txt = side + T('自定义 · 已保存','Custom · saved');
+    if (dirtyNow) txt = T('有未保存的改动','Unsaved changes');
     st.textContent = txt;
     st.className = 'cz-tag' + (dirtyNow || saved ? ' is-on' : '');
   }
@@ -401,8 +407,8 @@
         dirty = false;
         paintState(false);
         say(thScope === 'admin'
-          ? '后台配色已保存，后台页面立即生效'
-          : '前台配色已保存，整站立即生效');
+          ? T('后台配色已保存，后台页面立即生效','Admin palette saved — applies immediately')
+          : T('前台配色已保存，整站立即生效','Site palette saved — applies site-wide'));
       });
     }
 
@@ -413,7 +419,7 @@
         loadDraft();
         dirty = false;
         repaintTheme();
-        say(thScope === 'admin' ? '已恢复后台默认配色' : '已恢复前台默认配色');
+        say(thScope === 'admin' ? T('已恢复后台默认配色','Admin palette reset to default') : T('已恢复前台默认配色','Site palette reset to default'));
       });
     }
   }

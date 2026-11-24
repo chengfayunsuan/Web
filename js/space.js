@@ -6,11 +6,19 @@
 (function () {
   'use strict';
 
-  var ROLES = { owner: '站长', admin: '管理员', premium: '大会员', user: '用户' };
-  var STATUS = { active: '正常', frozen: '已冻结', banned: '已封禁' };
+  /* /en 与中文页共用这一份脚本，页面文字都过 T() */
+  var IS_EN = /^\/en(\/|$)/.test(location.pathname);
+  function T(zh, en) { return IS_EN ? en : zh; }
+
+  var ROLES = IS_EN
+    ? { owner: 'Owner', admin: 'Admin', premium: 'Premium', user: 'Member' }
+    : { owner: '站长', admin: '管理员', premium: '大会员', user: '用户' };
+  var STATUS = IS_EN
+    ? { active: 'Active', frozen: 'Frozen', banned: 'Banned' }
+    : { active: '正常', frozen: '已冻结', banned: '已封禁' };
   var RESTRICT_TEXT = {
-    banned: '该账户已被封禁，公开资料不再展示。',
-    frozen: '该账户已被冻结，公开资料暂停展示。'
+    banned: T('该账户已被封禁，公开资料不再展示。','This account is banned; the public profile is hidden.'),
+    frozen: T('该账户已被冻结，公开资料暂停展示。','This account is frozen; the public profile is paused.')
   };
 
   var app = document.getElementById('app');
@@ -95,7 +103,7 @@
     state.viewer.following = on;
     var btn = $('followBtn');
     if (!btn) return;
-    btn.textContent = on ? '已关注' : '关注';
+    btn.textContent = on ? T('已关注','Following') : T('关注','Follow');
     btn.classList.toggle('is-on', on);
     btn.disabled = false;
   }
@@ -112,7 +120,7 @@
     box.hidden = false;
 
     if (!state.viewer.signedIn) {
-      btn.textContent = '登录后关注';
+      btn.textContent = T('登录后关注','Sign in to follow');
       btn.addEventListener('click', function () {
         location.href = window.CF && CF.goto ? CF.goto('/login') : '/login';
       });
@@ -141,7 +149,7 @@
             state.social.following = r.body.followees;
             paintSocial();
             paintFollow(r.body.following);
-            say(r.body.following ? '已关注该用户' : '已取消关注');
+            say(r.body.following ? T('已关注该用户','Now following') : T('已取消关注','Unfollowed'));
 
             /* 关系变了，窗口开着就按新状态重取 */
             if (!sheet.hidden) loadRel(REL.scope, false);
@@ -152,22 +160,22 @@
 
           var err = r.body && r.body.error;
           if (err === 'unauthorized') {
-            say('登录状态已失效，请刷新页面');
+            say(T('登录状态已失效，请刷新页面','Session expired. Please refresh.'));
           } else if (err === 'self') {
-            say('不能关注自己');
+            say(T('不能关注自己','You cannot follow yourself.'));
           } else if (err === 'restricted') {
-            say('该账户当前状态不可关注');
+            say(T('该账户当前状态不可关注','This account cannot be followed in its current state.'));
           } else if (err === 'too_many') {
-            say('关注人数已达上限');
+            say(T('关注人数已达上限','Follower limit reached.'));
           } else if (err === 'not_found') {
-            say('该用户不存在');
+            say(T('该用户不存在','No such user.'));
           } else {
-            say('操作失败，请重试');
+            say(T('操作失败，请重试','Action failed. Try again.'));
           }
         })
         .catch(function () {
           btn.disabled = false;
-          say('网络连接失败，操作未生效');
+          say(T('网络连接失败，操作未生效','Network error — nothing was changed.'));
         });
     });
   }
@@ -225,9 +233,9 @@
 
   function emptyText(scope) {
     if (state.viewer.self) {
-      return scope === 'followers' ? '还没有人关注你。' : '还没有关注任何人。';
+      return scope === 'followers' ? T('还没有人关注你。','No followers yet.') : T('还没有关注任何人。','Not following anyone yet.');
     }
-    return scope === 'followers' ? '该账户还没有粉丝。' : '该账户还没有关注任何人。';
+    return scope === 'followers' ? T('该账户还没有粉丝。','This account has no followers yet.') : T('该账户还没有关注任何人。','This account is not following anyone yet.');
   }
 
   function relItem(it) {
@@ -244,12 +252,12 @@
 
     var name = document.createElement('span');
     name.className = 'rel__name';
-    name.textContent = it.username || '未命名';
+    name.textContent = it.username || T('未命名','Unnamed');
 
     var role = document.createElement('span');
     role.className = 'face__role rel__role';
     role.setAttribute('data-role', it.role || 'user');
-    role.textContent = ROLES[it.role] || it.role || '用户';
+    role.textContent = ROLES[it.role] || it.role || T('用户','Member');
 
     var lv = document.createElement('span');
     lv.className = 'rel__lv';
@@ -274,7 +282,7 @@
       act.type = 'button';
       act.setAttribute('data-uid', it.uid);
       act.setAttribute('data-following', it.following ? '1' : '0');
-      act.textContent = it.following ? '取消关注' : '关注';
+      act.textContent = it.following ? T('取消关注','Unfollow') : T('关注','Follow');
       li.appendChild(act);
     }
 
@@ -314,8 +322,8 @@
         if (!r.body || !r.body.ok) {
           relEmpty.hidden = false;
           relEmpty.textContent = r.status === 401
-            ? '登录状态已失效，请重新登录。'
-            : '列表载入失败，稍后重试。';
+            ? T('登录状态已失效，请重新登录。','Your session expired. Please sign in again.')
+            : T('列表载入失败，稍后重试。','Could not load the list. Try again shortly.');
           return;
         }
 
@@ -342,7 +350,7 @@
         REL.busy = false;
         relMore.disabled = false;
         relEmpty.hidden = false;
-        relEmpty.textContent = '网络连接失败，请稍后刷新。';
+        relEmpty.textContent = T('网络连接失败，请稍后刷新。','Network error. Please refresh.');
       });
   }
 
@@ -382,11 +390,11 @@
 
         if (!r.ok || !r.body.ok) {
           var err = r.body && r.body.error;
-          if (err === 'unauthorized') say('登录状态已失效，请刷新页面');
-          else if (err === 'too_many') say('关注人数已达上限');
-          else if (err === 'self') say('不能关注自己');
-          else if (err === 'restricted') say('该账户当前状态不可关注');
-          else say('操作失败，请重试');
+          if (err === 'unauthorized') say(T('登录状态已失效，请刷新页面','Session expired. Please refresh.'));
+          else if (err === 'too_many') say(T('关注人数已达上限','Follower limit reached.'));
+          else if (err === 'self') say(T('不能关注自己','You cannot follow yourself.'));
+          else if (err === 'restricted') say(T('该账户当前状态不可关注','This account cannot be followed in its current state.'));
+          else say(T('操作失败，请重试','Action failed. Try again.'));
           return;
         }
 
@@ -405,17 +413,17 @@
             relEmpty.textContent = emptyText('following');
           }
 
-          say('已取消关注');
+          say(T('已取消关注','Unfollowed'));
           return;
         }
 
         btn.setAttribute('data-following', r.body.following ? '1' : '0');
-        btn.textContent = r.body.following ? '取消关注' : '关注';
-        say(r.body.following ? '已关注' : '已取消关注');
+        btn.textContent = r.body.following ? T('取消关注','Unfollow') : T('关注','Follow');
+        say(r.body.following ? T('已关注','Following') : T('已取消关注','Unfollowed'));
       })
       .catch(function () {
         btn.disabled = false;
-        say('网络连接失败，操作未生效');
+        say(T('网络连接失败，操作未生效','Network error — nothing was changed.'));
       });
   });
 
@@ -465,14 +473,14 @@
   /* ---------- 渲染 ---------- */
 
   function render(u) {
-    document.title = (u.username || '用户') + ' · Chengfa';
+    document.title = (u.username || T('用户','Member')) + ' · Chengfa';
 
     state.uid = u.uid;
     state.viewer = u.viewer || { self: false, signedIn: false, following: false };
     state.social = u.social || { followers: 0, following: 0 };
 
     $('uid').textContent = u.uid;
-    $('name').textContent = u.username || '未命名';
+    $('name').textContent = u.username || T('未命名','Unnamed');
 
     var role = u.role || 'user';
     var roleEl = $('role');
@@ -485,7 +493,7 @@
     if (u.restricted) {
       $('sub').hidden = true;
       $('restrictNote').hidden = false;
-      $('restrictNote').textContent = RESTRICT_TEXT[u.status] || '该账户当前状态异常，公开资料不展示。';
+      $('restrictNote').textContent = RESTRICT_TEXT[u.status] || T('该账户当前状态异常，公开资料不展示。','This account is in an unusual state; the profile is hidden.');
       $('bio').hidden = true;
       $('socialRow').hidden = true;
       $('followBox').hidden = true;
@@ -498,7 +506,8 @@
     }
 
     $('sub').textContent =
-      '注册于 ' + (u.joinedMonth || '未记录') + ' · 已加入 ' + (u.joinedDays || 1) + ' 天';
+      T('注册于 ' + (u.joinedMonth || '未记录') + ' · 已加入 ' + (u.joinedDays || 1) + ' 天',
+        'Joined ' + (u.joinedMonth || 'unknown') + ' · ' + (u.joinedDays || 1) + ' days');
 
     /* 经验：每级 100 分，第 n 级区间 [(n-1)*100, n*100)
        LV0 是 -100～-1，LV-1 是 -200～-100，负等级同样有进度条 */
@@ -524,9 +533,10 @@
 
     var hint = $('expHint');
     if (exp >= next) {
-      hint.textContent = '已达到当前等级上限，等待等级结算。';
+      hint.textContent = T('已达到当前等级上限，等待等级结算。','Level cap reached — waiting for the level to settle.');
     } else {
-      hint.textContent = '再获得 ' + (next - exp) + ' 点经验升至 LV' + (lv + 1) + '。';
+      hint.textContent = T('再获得 ' + (next - exp) + ' 点经验升至 LV' + (lv + 1) + '。',
+        (next - exp) + ' more experience to reach LV' + (lv + 1) + '.');
     }
 
     var bar = $('expBar');
@@ -536,7 +546,7 @@
     if (u.bio && u.bio.trim()) {
       bio.textContent = u.bio;
     } else {
-      bio.textContent = '该用户还没有填写个人简介。';
+      bio.textContent = T('该用户还没有填写个人简介。','This user has not written a bio yet.');
       bio.classList.add('is-empty');
     }
 
@@ -555,7 +565,7 @@
   if (logoutBtn) {
     logoutBtn.addEventListener('click', function () {
       logoutBtn.disabled = true;
-      logoutBtn.textContent = '退出中';
+      logoutBtn.textContent = T('退出中','Signing out…');
       fetch('/api/auth/logout', { method: 'POST' })
         .catch(function () {})
         .then(function () { location.replace(window.CF && CF.goto ? CF.goto('/') : '/'); });
@@ -567,12 +577,12 @@
   $('copyLink').addEventListener('click', function () {
     var url = location.origin + '/space?uid=' + encodeURIComponent(uid);
     if (!navigator.clipboard || !navigator.clipboard.writeText) {
-      say('当前浏览器不支持自动复制，请手动复制地址栏');
+      say(T('当前浏览器不支持自动复制，请手动复制地址栏','This browser cannot copy automatically — copy the address bar manually'));
       return;
     }
     navigator.clipboard.writeText(url).then(
-      function () { say('主页链接已复制'); },
-      function () { say('复制被拒绝，请手动复制地址栏'); }
+      function () { say(T('主页链接已复制','Profile link copied')); },
+      function () { say(T('复制被拒绝，请手动复制地址栏','Copy was blocked — copy the address bar manually')); }
     );
   });
 
@@ -582,11 +592,11 @@
   var uid = (params.get('uid') || '').trim();
 
   if (!uid) {
-    showNone('缺少 UID', '主页地址需要带上 UID，例如 /space?uid=1。');
+    showNone(T('缺少 UID','Missing UID'), T('主页地址需要带上 UID，例如 /space?uid=1。','The profile URL needs a UID, e.g. /space?uid=1.'));
     return;
   }
   if (!/^\d+$/.test(uid)) {
-    showNone('UID 格式不正确', 'UID 是一串数字，从 1 开始。检查地址里的 uid 参数。');
+    showNone(T('UID 格式不正确','Invalid UID'), T('UID 是一串数字，从 1 开始。检查地址里的 uid 参数。','UIDs are numbers starting at 1 — check the uid parameter in the URL.'));
     return;
   }
 
@@ -672,7 +682,7 @@
       $('navGuest').hidden = true;
       $('navAuthed').hidden = false;
       setAmt($('navBal'), me.fc);
-      $('navName').textContent = me.username || '我';
+      $('navName').textContent = me.username || T('我','Me');
 
       /* 站长与管理员点左上角Chengfa进后台 */
       var brand = document.querySelector('.brand');
@@ -682,7 +692,7 @@
 
     if (r.status === 0) {
       loading.hidden = true;
-      say('网络连接失败，请检查网络后刷新');
+      say(T('网络连接失败，请检查网络后刷新','Network error — check your connection and refresh'));
       return;
     }
 
@@ -702,13 +712,13 @@
 
     var err = r.body && r.body.error;
     if (err === 'gone') {
-      showNone('该账户已注销', '账户注销后主页不再公开，相关内容也不再展示。');
+      showNone(T('该账户已注销','This account is closed'), T('账户注销后主页不再公开，相关内容也不再展示。','Closed accounts no longer have a public profile or content.'));
     } else if (err === 'not_found') {
-      showNone('没有这个用户', 'UID 可能写错了。UID 从 1 开始，按注册顺序发放。');
+      showNone(T('没有这个用户','No such user'), T('UID 可能写错了。UID 从 1 开始，按注册顺序发放。','The UID may be wrong — UIDs start at 1 in signup order.'));
     } else if (err === 'invalid_query') {
-      showNone('UID 格式不正确', 'UID 是一串数字，从 1 开始。');
+      showNone(T('UID 格式不正确','Invalid UID'), T('UID 是一串数字，从 1 开始。','UIDs are numbers starting at 1.'));
     } else {
-      showNone('主页载入失败', '服务暂时不可用，稍后刷新重试。');
+      showNone(T('主页载入失败','Could not load the profile'), T('服务暂时不可用，稍后刷新重试。','Service unavailable. Refresh and retry later.'));
     }
   });
 })();
