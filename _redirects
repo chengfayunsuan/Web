@@ -40,3 +40,6 @@
 # 这两个页面已经删了，但旧地址被边缘缓存过，用 302 把人挡回后台首页
 /lab              /admin  302
 /admin/customize  /admin  302
+
+# CPX 回调的短别名：后台那个字段可能限制长度，/pb 比 /api/cpx/postback 短 16 个字符
+/pb  /api/cpx/postback  200
