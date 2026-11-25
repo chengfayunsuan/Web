@@ -2443,30 +2443,44 @@ async function trSurveyList(request, env) {
   } catch (e) {
     console.error('tr sync profile threw:', e && e.message);
   }
-  const qs = [
-    'api_key=' + encodeURIComponent(c.apiKey),
-    'user_id=' + Number(session.uid),
-    'ip=' + encodeURIComponent(ip)
-  ];
-  if (/^[A-Z]{2}$/.test(cc)) qs.push('country_code=' + cc);
-  qs.push('max_result_count=30');
-  qs.push('max_loi=30');
+  /* 拉一次上游列表。max_result_count 就是我们一次能拿到多少份的硬上限，
+     原来写死 30，等于不管上游有多少库存，大厅最多只出现 30 份。
+     官方没把这个参数的天花板写进文档，所以先按 100 要，被拒就退回 30 再要来一次，
+     免得参数值不被接受时整页空掉。 */
+  async function trPull(maxCount) {
+    const qs = [
+      'api_key=' + encodeURIComponent(c.apiKey),
+      'user_id=' + Number(session.uid),
+      'ip=' + encodeURIComponent(ip)
+    ];
+    if (/^[A-Z]{2}$/.test(cc)) qs.push('country_code=' + cc);
+    qs.push('max_result_count=' + maxCount);
+    qs.push('max_loi=30');
 
-  const base = TR_API_SURVEYS + '?' + qs.join('&');
-  const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
-
-  let payload = null;
-  let upErr = '';
-  try {
-    const r = await fetch(signed, { headers: { Accept: 'application/json' } });
-    const text = await r.text();
-    if (r.ok) {
-      payload = JSON.parse(text);
-    } else {
-      upErr = r.status + ' ' + text.slice(0, 160);
+    const base = TR_API_SURVEYS + '?' + qs.join('&');
+    const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
+    try {
+      const r = await fetch(signed, { headers: { Accept: 'application/json' } });
+      const text = await r.text();
+      if (r.ok) return { payload: JSON.parse(text), upErr: '' };
+      return { payload: null, upErr: r.status + ' ' + text.slice(0, 160) };
+    } catch (e) {
+      return { payload: null, upErr: String((e && e.message) || e).slice(0, 160) };
     }
-  } catch (e) {
-    upErr = String((e && e.message) || e).slice(0, 160);
+  }
+
+  const first = await trPull(100);
+  let payload = first.payload;
+  let upErr = first.upErr;
+  if (!payload) {
+    const retry = await trPull(30);
+    if (retry.payload) {
+      console.error('tr surveys max_result_count=100 rejected, fell back to 30:', upErr);
+      payload = retry.payload;
+      upErr = '';
+    } else {
+      upErr = retry.upErr || upErr;
+    }
   }
 
   if (!payload) {
@@ -2478,10 +2492,13 @@ async function trSurveyList(request, env) {
   const fx = await fxValue(env);
   const list = Array.isArray(payload.surveys) ? payload.surveys : [];
   const priv = await isPrivileged(env, session.uid);
-  const items = [];
+
+  /* 先挑出要展示的候选，再一次性并行签名。
+     串行 await 一百次 HMAC 会把 CPU 时间全吃在这一步上。 */
+  const picks = [];
   let demoSeen = 0;
   let demoHidden = 0;
-  for (let i = 0; i < list.length && items.length < 30; i++) {
+  for (let i = 0; i < list.length; i++) {
     const s = list[i];
     const usd = Number(s.cpi) || 0;
     if (usd <= 0) continue;
@@ -2497,8 +2514,20 @@ async function trSurveyList(request, env) {
         continue;
       }
     }
+    picks.push({ s: s, usd: usd, isDemo: isDemo, i: i });
+  }
 
-    const entry = await trSignEntry(c, s, session.uid);
+  const entries = await Promise.all(
+    picks.map(function (p) { return trSignEntry(c, p.s, session.uid); })
+  );
+
+  const items = [];
+  for (let k = 0; k < picks.length; k++) {
+    const s = picks[k].s;
+    const usd = picks[k].usd;
+    const isDemo = picks[k].isDemo;
+    const i = picks[k].i;
+    const entry = entries[k];
     if (!entry) continue;
     const loi = Number(s.loi) || 0;
     items.push({
@@ -2529,6 +2558,9 @@ async function trSurveyList(request, env) {
 
   return json({
     ok: true, items: items, count: items.length, country: cc,
+    /* upstream = 上游这次实际回了几份（截断前），shown = 落到大厅的份数。
+       两个数一对比就知道是上游没库存，还是我们中途丢卷了。 */
+    upstream: list.length, shown: items.length,
     /* demo / demoHidden 只用于排查：上游给了几份测试卷、其中几份被挡在门外 */
     demo: demoSeen, demoHidden: demoHidden
   });
