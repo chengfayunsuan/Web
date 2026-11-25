@@ -41,5 +41,3 @@
 /lab              /admin  302
 /admin/customize  /admin  302
 
-# CPX 回调的短别名：后台那个字段可能限制长度，/pb 比 /api/cpx/postback 短 16 个字符
-/pb  /api/cpx/postback  200
