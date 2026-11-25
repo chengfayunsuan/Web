@@ -2506,23 +2506,29 @@ async function trSurveyList(request, env) {
   let upErr = '';
   let maxTried = 0;
   let preAllowed = false;
-  /* 先按「不要额外预筛」要，全挂就退回原样要 —— 宁可被多问几句，
-     也不能因为一个参数把整个大厅搞空。 */
+  /* 先按「不要额外预筛」要，拿不到卷就退回原样 —— 宁可被多问几句，
+     也不能因为一个参数把整个大厅搞空。
+     注意：上游对不认识的参数不一定报错，可能老实回一个 HTTP 200 + 空数组。
+     所以「回了 200」不等于「拿到了」，空列表也要继续降档，
+     只有最后一档才接受空结果（那才是真的没库存）。 */
   const ladder = [
     [500, false], [100, false], [100, true], [30, true]
   ];
   for (let li = 0; li < ladder.length; li++) {
     const got = await trPull(ladder[li][0], ladder[li][1]);
-    if (got.payload) {
+    const n = got.payload && Array.isArray(got.payload.surveys) ? got.payload.surveys.length : -1;
+    const last = li === ladder.length - 1;
+    if (got.payload && (n > 0 || last)) {
       payload = got.payload;
       maxTried = ladder[li][0];
       preAllowed = ladder[li][1];
       upErr = '';
+      if (n <= 0) console.error('tr surveys empty at last resort, max=' + ladder[li][0]);
       break;
     }
-    upErr = got.upErr || upErr;
+    upErr = got.payload ? ('empty list (' + n + ' surveys)') : (got.upErr || upErr);
     console.error('tr surveys try max=' + ladder[li][0] + ' allowExtra=' + ladder[li][1]
-      + ' rejected:', got.upErr);
+      + ' rejected:', upErr);
   }
 
   if (!payload) {
