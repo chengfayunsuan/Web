@@ -75,6 +75,8 @@ export async function onRequest(context) {
     if (path === 'opinionuniverse/go' && request.method === 'GET') return await ouGo(request, env);
     if (path === 'bitlabs/postback') return await blPostback(request, env, url);
     if (path === 'bitlabs/go' && request.method === 'GET') return await blGo(request, env);
+    if (path === 'cpx/postback') return await cpxPostback(request, env, url);
+    if (path === 'cpx/go' && request.method === 'GET') return await cpxGo(request, env);
     if (path === 'moonetix/mock/complete' && request.method === 'POST') return await mtxMockComplete(request, env);
     if (path === 'theoremreach/link' && request.method === 'GET') return await trLink(request, env);
     /* 直接跳转版：卡片就是个普通链接，不用 JS 也能进墙（中键、右键都能用） */
@@ -1187,6 +1189,62 @@ function mtxText(body, status) {
   });
 }
 
+/* MD5（hex 小写）。Workers 的 crypto.subtle 只有 SHA 系列，没有 MD5，
+   而 CPX Research 的入口签名和回调验签都是 MD5，所以这里自己实现一份。
+   已用空串/abc/中文/长串对齐 node:crypto 验证过。 */
+const MD5_S = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+  5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+  4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+  6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21];
+
+function md5Hex(str) {
+  const bytes = new TextEncoder().encode(String(str));
+  const n = bytes.length;
+  const padLen = (((n + 8) >> 6) + 1) * 64;
+  const buf = new Uint8Array(padLen);
+  buf.set(bytes);
+  buf[n] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(padLen - 8, (n * 8) >>> 0, true);
+  dv.setUint32(padLen - 4, Math.floor(n / 536870912), true);
+
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  const K = new Int32Array(64);
+  for (let i = 0; i < 64; i++) {
+    K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  }
+
+  for (let off = 0; off < padLen; off += 64) {
+    const M = new Int32Array(16);
+    for (let j = 0; j < 16; j++) M[j] = dv.getInt32(off + j * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) { F = (B & C) | (~B & D); g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C); g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D; g = (3 * i + 5) % 16; }
+      else { F = C ^ (B | ~D); g = (7 * i) % 16; }
+      const tmp = D;
+      D = C;
+      C = B;
+      const x = (A + F + K[i] + M[g]) | 0;
+      B = (B + ((x << MD5_S[i]) | (x >>> (32 - MD5_S[i])))) | 0;
+      A = tmp;
+    }
+    a0 = (a0 + A) | 0;
+    b0 = (b0 + B) | 0;
+    c0 = (c0 + C) | 0;
+    d0 = (d0 + D) | 0;
+  }
+
+  function hexLE(v) {
+    let out = '';
+    for (let i = 0; i < 4; i++) out += ((v >>> (i * 8)) & 0xff).toString(16).padStart(2, '0');
+    return out;
+  }
+  return hexLE(a0) + hexLE(b0) + hexLE(c0) + hexLE(d0);
+}
+
 async function hmacHex(secret, msg) {
   const enc = new TextEncoder();
   const k = await crypto.subtle.importKey(
@@ -1913,6 +1971,139 @@ async function blGo(request, env) {
       'Referrer-Policy': 'no-referrer-when-downgrade'
     }
   });
+}
+
+/* ---------------- CPX Research 回传 ----------------
+ * 官方 Postback Settings 页给的宏与规则（2026-11-25 实测文档）：
+ *   - 每次新的 credit 都会打一次；fraud 在 15~60 天内判出时，用「同一个 trans_id」
+ *     再打一次、status 改成 2 —— 这就是冲正，跟我们的幂等逻辑天然一致
+ *   - {hash} = md5(trans_id + '-' + App Security Hash)
+ *   - status: 1 = 已入账，2 = 已扣回
+ *   - {amount_local} 是我们面板 Currency Factor 算出来的「XD 金额」
+ *     （主卷 factor=69，bonus factor=100，所以不能拿 usd 反推）
+ *   - 官方给出的回调来源 IP：157.90.97.92 / 188.40.77.3 / 2a01:4f8:10a:3d8f::2
+ *     （目前只记录不拦截：hash 已是可靠凭据，IP 万一换段会一分钱收不到）
+ */
+const CPX_HOME_IPS = ['157.90.97.92', '188.40.77.3', '2a01:4f8:10a:3d8f::2'];
+
+function cpxConf(env) {
+  return {
+    appId: String(env.CPX_APP_ID || '').trim(),
+    secret: String(env.CPX_SECRET || '').trim()
+  };
+}
+
+/* 入口：官方 iframe/direct 地址都是 offers.cpx-research.com/index.php
+   （文档正文里写的 wall. 是旧域名，后台实际给的是 offers.）
+   secure_hash 要等后台开启 Security Check 才校验，现在传了也无害。 */
+async function cpxGo(request, env) {
+  const origin = new URL(request.url).origin;
+  const session = await currentSession(request, env);
+  if (!session) return Response.redirect(origin + '/login', 302);
+  if (!isActive(session)) return Response.redirect(origin + '/support', 302);
+  if (await wallBlocked(env, session.uid)) return Response.redirect(origin + '/settings?verify=1', 302);
+
+  const c = cpxConf(env);
+  if (!c.appId || !c.secret) return Response.redirect(origin + '/hall', 302);
+
+  const me = await env.DB.prepare(
+    'SELECT username, email FROM users WHERE id = ? AND deleted_at IS NULL'
+  ).bind(session.uid).first();
+
+  const uid = String(session.uid);
+  const qs = [
+    'app_id=' + encodeURIComponent(c.appId),
+    'ext_user_id=' + encodeURIComponent(uid),
+    'secure_hash=' + md5Hex(uid + '-' + c.secret)
+  ];
+  if (me && me.username) qs.push('username=' + encodeURIComponent(me.username));
+  if (me && me.email) qs.push('email=' + encodeURIComponent(me.email));
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: 'https://offers.cpx-research.com/index.php?' + qs.join('&'),
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer-when-downgrade'
+    }
+  });
+}
+
+async function cpxPostback(request, env, url) {
+  const p = await mtxParams(request, url);
+  const c = cpxConf(env);
+  const ip = request.headers.get('CF-Connecting-IP') || '';
+  const tid = String(p.trans_id || p.transaction_id || '').trim();
+  const given = String(p.hash || '').trim().toLowerCase();
+
+  /* 没配密钥：只登记、不入账。回 200 免得它无意义重试 */
+  if (!c.secret) {
+    await hookLog(env, { provider: 'cpx', method: request.method,
+      params: JSON.stringify(p), result: 'not configured', ip: ip });
+    return mtxText('OK', 200);
+  }
+
+  /* 验签：md5(trans_id + '-' + App Security Hash)，32 位十六进制 */
+  let verdict = 'ok';
+  if (!given) verdict = 'missing hash';
+  else if (!tid) verdict = 'missing trans_id';
+  else if (md5Hex(tid + '-' + c.secret) !== given) verdict = 'bad hash';
+
+  const ipOk = CPX_HOME_IPS.indexOf(ip) >= 0;
+  await hookLog(env, {
+    provider: 'cpx', method: request.method,
+    params: JSON.stringify(p),
+    tokenLen: given.length, tokenOk: verdict === 'ok' ? 1 : 0,
+    result: verdict + ' status=' + (p.status || '?') +
+      ' type=' + (p.type || '?') +
+      ' local=' + (p.amount_local || '?') +
+      ' ip=' + (ipOk ? 'ok' : ip),
+    ip: ip
+  });
+  if (verdict !== 'ok') return mtxText('OK', 200);
+
+  const uid = Number(p.user_id || p.ext_user_id || 0);
+  const status = Number(p.status || 1);
+  const local = Number(p.amount_local || 0);
+  const usd = Number(p.amount_usd || 0);
+  const type = String(p.type || '').trim().toLowerCase();
+
+  if (!Number.isInteger(uid) || uid <= 0) return mtxText('OK', 200);
+  if (!tid) return mtxText('OK', 200);
+  if (status !== 1 && status !== 2) return mtxText('OK', 200);
+
+  /* 金额口径：amount_local 已经是「用户应得的 XD」——
+     主卷按 factor=69 算、bonus 按 factor=100 算，CPX 都算好了。
+     所以一律 local/100*汇率 折成 XB，绝不能用 usd*69 反推，
+     否则 bonus 那部分会少给 31%（那是明确要全额给用户的）。 */
+  const fx = await fxValue(env);
+  const units = Math.round(Math.abs(local) / XD_PER_USD * fx * FC_SCALE);
+  if (units <= 0) return mtxText('OK', 200);
+
+  const isRev = status === 2;
+  const res = await mtxApply(env, {
+    uid: uid, tid: tid, status: status,
+    units: units,
+    provider: 'cpx',
+    kind: 'cpx_reward',
+    kindRev: 'cpx_reverse',
+    label: '问卷墙',
+    meta: {
+      eventId: String(p.offer_id || ''),
+      offerId: String(p.offer_id || ''),
+      offerName: type === 'bonus' ? '完成评分奖励'
+        : (type === 'return' ? '筛选补偿' : '问卷'),
+      payout: String(usd || ''),
+      currency: 'USD',
+      ip: ip
+    }
+  });
+
+  console.log('cpx postback:', verdict, 'uid=' + uid, 'tx=' + tid,
+    'local=' + local, 'usd=' + usd, 'status=' + status,
+    'type=' + type, JSON.stringify(res));
+  if (!res.ok && res.error === 'no_user') return mtxText('OK', 200);
+  return mtxText('OK', 200);
 }
 
 async function trPostback(request, env, url, path) {
