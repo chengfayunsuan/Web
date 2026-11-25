@@ -515,3 +515,79 @@
 .hl-main .hl-sect--feat .sv-grid {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
+
+/* ---------- 问卷画像条：填一次，TR 预选少问几遍 ---------- */
+
+.hl-prof {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 2px solid var(--ink);
+  background: var(--paper-2);
+}
+
+.hl-prof__txt { flex: 1 1 260px; min-width: 0; }
+.hl-prof__txt b { display: block; font-size: 14px; letter-spacing: .02em; }
+.hl-prof__txt span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--gray);
+}
+
+.hl-prof__form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+
+.hl-prof__f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--gray);
+}
+
+.hl-prof__f input,
+.hl-prof__f select {
+  width: 88px;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+}
+
+.hl-prof__f input:focus,
+.hl-prof__f select:focus { outline: 2px solid var(--red); outline-offset: 1px; }
+
+.hl-prof__btn {
+  padding: 9px 18px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--paper);
+  background: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.hl-prof__btn:hover { background: var(--red); border-color: var(--red); }
+.hl-prof__btn[disabled] { opacity: .45; cursor: default; }
+
+@media (max-width: 640px) {
+  .hl-prof { padding: 12px 13px; }
+  .hl-prof__txt { flex: 1 1 100%; }
+  .hl-prof__form { width: 100%; gap: 8px; }
+  .hl-prof__f { flex: 1 1 0; }
+  .hl-prof__f input,
+  .hl-prof__f select { width: 100%; }
+  .hl-prof__btn { flex: 1 1 100%; }
+}

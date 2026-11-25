@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/style.css?v=16">
 <link rel="stylesheet" href="/css/home.css?v=17">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/hall.css?v=11">
+<link rel="stylesheet" href="/css/hall.css?v=12">
 <script src="/js/config.js?v=10"></script>
 <script src="/js/core.js?v=41"></script>
 </head>
@@ -78,6 +78,31 @@
       <div class="pg-side pg-side--num">
         <b id="hallCount">0</b>
         <span>份可参与</span>
+      </div>
+    </div>
+
+    <!-- 问卷画像：填一次，TR 预选就少问几遍。
+         不填不挡事，只是每次进墙都要被从头问一遍年龄性别住哪。 -->
+    <div class="hl-prof" id="profBar" hidden>
+      <div class="hl-prof__txt">
+        <b>先把资料交代清楚</b>
+        <span>TheoremReach 靠这三项匹配问卷。我们不传，它每次预选都要重新问一遍。</span>
+      </div>
+      <div class="hl-prof__form">
+        <label class="hl-prof__f"><span>年龄</span>
+          <input id="profAge" type="text" inputmode="numeric" maxlength="2" placeholder="18">
+        </label>
+        <label class="hl-prof__f"><span>性别</span>
+          <select id="profGender">
+            <option value="">不填</option>
+            <option value="M">男</option>
+            <option value="F">女</option>
+          </select>
+        </label>
+        <label class="hl-prof__f"><span>邮编</span>
+          <input id="profPostal" type="text" inputmode="numeric" maxlength="10" placeholder="475000">
+        </label>
+        <button class="hl-prof__btn" id="profSave" type="button">保存</button>
       </div>
     </div>
 
@@ -200,7 +225,7 @@
   </div>
 </footer>
 
-<script src="/js/app.js?v=32" defer></script>
+<script src="/js/app.js?v=33" defer></script>
   <script src="/js/build-notice.js?v=3" defer></script>
 </body>
 </html>
