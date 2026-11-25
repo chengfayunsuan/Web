@@ -7,7 +7,8 @@
 /space    /pages/space    200
 /login    /pages/login    200
 /hall     /pages/hall     200
-/earn     /pages/earn     200
+/earn     /hall           301
+/en/earn  /en/hall        301
 /mock-wall /pages/mock-wall 200
 /store    /pages/store    200
 /ledger   /pages/ledger   200

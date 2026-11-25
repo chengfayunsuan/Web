@@ -1691,7 +1691,7 @@ async function trGo(request, env) {
   if (await wallBlocked(env, session.uid)) return Response.redirect(origin + '/settings?verify=1', 302);
 
   const c = trConf(env);
-  if (!c.apiKey) return Response.redirect(origin + '/earn', 302);
+  if (!c.apiKey) return Response.redirect(origin + '/hall', 302);
 
   /* ?debug=1 走官方测试模式：只出 1 道题的问卷，专门用来验证回调，
      绝不能让它进生产流量 */

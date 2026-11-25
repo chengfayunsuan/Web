@@ -192,15 +192,14 @@
 
   var NAV_USER = [
     { k: '1', href: '/hall', t: T('问卷大厅','Survey hall') },
-    { k: '2', href: '/earn', t: T('赚积分','Earn') },
-    { k: '3', href: '/store', t: T('兑换中心','Store') },
-    { k: '4', href: '/ledger', t: T('收支明细','Ledger') },
-    { k: '5', href: '/ladder', t: T('天梯榜','Leaderboard') },
-    { k: '6', href: '/messages', t: T('站内消息','Messages') },
-    { k: '7', href: '/support', t: T('联系客服','Support') },
-    { k: '8', href: '/settings', t: T('账户设置','Settings') },
-    { k: '9', href: '/home', t: T('账户首页','Home') },
-    { k: '0', href: '/notices', t: T('公告','Notices') }
+    { k: '2', href: '/store', t: T('兑换中心','Store') },
+    { k: '3', href: '/ledger', t: T('收支明细','Ledger') },
+    { k: '4', href: '/ladder', t: T('天梯榜','Leaderboard') },
+    { k: '5', href: '/messages', t: T('站内消息','Messages') },
+    { k: '6', href: '/support', t: T('联系客服','Support') },
+    { k: '7', href: '/settings', t: T('账户设置','Settings') },
+    { k: '8', href: '/home', t: T('账户首页','Home') },
+    { k: '9', href: '/notices', t: T('公告','Notices') }
   ];
 
   var NAV_ADMIN = [
@@ -858,7 +857,6 @@
     '/login': '/en/login',
     '/hall': '/en/hall',
     '/home': '/en/home',
-    '/earn': '/en/earn',
     '/store': '/en/store'
   };
 
