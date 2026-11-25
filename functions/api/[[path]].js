@@ -4830,9 +4830,63 @@ async function adminApi(request, env, url, path) {
   if (path === 'admin/announcements/delete' && request.method === 'POST') return await adminNoticeDelete(request, env);
   if (path === 'admin/moonetix' && request.method === 'GET') return await adminMtxList(env, url);
   if (path === 'admin/theoremreach/reports' && request.method === 'GET') return await adminTrReports(env, url);
+  if (path === 'admin/theoremreach/questions' && request.method === 'GET') return await adminTrQuestions(env, url);
   if (path === 'admin/traffic' && request.method === 'GET') return await adminTraffic(env, url);
   if (path === 'admin/traffic/track' && request.method === 'GET') return await adminIpTrack(env, url);
   return json({ ok: false, error: 'not_found' }, 404);
+}
+
+/* 后台查 TR 在某个国家到底有哪些画像问题、question_id / answer_id 分别是多少。
+   用途：update_profile 的 facet_hash 是 { question_id: [answer_ids] }，
+   这些 ID 按国家不同（文档里 USA 是 1/2，UK 是 221，Canada 是 41），
+   不先查一遍就只能靠猜，猜错它照样收下但匹配不生效。
+   入口：/api/admin/theoremreach/questions?cc=CN */
+async function adminTrQuestions(env, url) {
+  const c = trConf(env);
+  if (!c.apiKey || !c.secretKey) return json({ ok: false, error: 'not_configured' }, 400);
+
+  const cc = String(url.searchParams.get('cc') || 'CN').toUpperCase();
+
+  async function trGet(u) {
+    const signed = u + (u.indexOf('?') >= 0 ? '&' : '?') + 'hash=' + (await trHashOf(c.secretKey, u));
+    try {
+      const r = await fetch(signed, { headers: { Accept: 'application/json' } });
+      const text = await r.text();
+      let body;
+      try { body = JSON.parse(text); } catch (e) { body = text.slice(0, 300); }
+      return { status: r.status, body: body };
+    } catch (e) {
+      return { status: 0, body: String((e && e.message) || e).slice(0, 200) };
+    }
+  }
+
+  const base = 'https://api.theoremreach.com/api/publishers/v1';
+  const countries = await trGet(base + '/countries?api_key=' + encodeURIComponent(c.apiKey));
+  const list = Array.isArray(countries.body) ? countries.body : [];
+  const hit = list.filter(function (x) {
+    return String((x && x.code) || '').toUpperCase() === cc;
+  })[0];
+
+  if (!hit) {
+    return json({
+      ok: false, error: 'country_not_found', cc: cc,
+      countriesStatus: countries.status,
+      sample: list.slice(0, 8),
+      total: list.length
+    }, 200);
+  }
+
+  const all = await trGet(base + '/all_questions?api_key=' + encodeURIComponent(c.apiKey)
+    + '&country_id=' + Number(hit.id));
+
+  return json({
+    ok: all.status >= 200 && all.status < 300,
+    cc: cc,
+    countryId: hit.id,
+    countryName: hit.name,
+    status: all.status,
+    questions: all.body
+  }, 200);
 }
 
 /* 后台看 TR 的真实收入：按天按国家拉官方报表，跟我们的入账对账用。
