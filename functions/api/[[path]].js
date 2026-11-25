@@ -2321,7 +2321,7 @@ async function trDecide(env, request, p, seg, url) {
 const TR_API_SURVEYS = 'https://api.theoremreach.com/api/publishers/v1/surveys';
 
 /* 把未签名的 entry_link 补成可直接跳的链接 */
-async function trSignEntry(c, s, uid) {
+async function trSignEntry(c, s, uid, prof) {
   let u = String((s && s.entry_link) || '').trim();
   if (!u) return '';
   /* user_id 必须换成本站当前用户，列表可能是按别人拉的 */
@@ -2331,6 +2331,28 @@ async function trSignEntry(c, s, uid) {
     + '&currency_name_singular=' + encodeURIComponent(c.curName)
     + '&display_name=' + encodeURIComponent('Chengfa');
   if (c.partnerId) u += '&partner_id=' + encodeURIComponent(c.partnerId);
+
+  /* 预认证：把已经知道的画像直接贴在 entry_link 上。
+     官方文档管这叫 pre-qualification，效果比 update_profile 更硬 ——
+     它是跟着这一次点击走的，TR 收到就不用再问一遍。
+     参数名固定：question_1[] 是年龄（1-99）、question_2[] 是性别（100=M / 101=F）、
+     postal_code 是邮编。上游链接里本来就有同名参数时不要重复加，会被当成冲突值。 */
+  if (prof) {
+    const age = Number(prof.tr_age) || 0;
+    if (age >= 1 && age <= 99 && u.indexOf('question_1') < 0) {
+      u += '&question_1[]=' + age;
+    }
+    if (u.indexOf('question_2') < 0) {
+      const g = String(prof.tr_gender || '').trim().toUpperCase();
+      if (g === 'M') u += '&question_2[]=100';
+      else if (g === 'F') u += '&question_2[]=101';
+    }
+    const postal = String(prof.tr_postal || '').trim();
+    if (postal && u.indexOf('postal_code') < 0) {
+      u += '&postal_code=' + encodeURIComponent(postal);
+    }
+  }
+
   return u + '&hash=' + (await trHashOf(c.secretKey, u));
 }
 
@@ -2434,12 +2456,14 @@ async function trSurveyList(request, env) {
     (request.cf && request.cf.country) || request.headers.get('CF-IPCountry') || ''
   ).toUpperCase();
 
-  /* 有资料就先喂给 TR，失败了也不挡拉列表这条路 */
+  /* 有资料就先喂给 TR，失败了也不挡拉列表这条路。
+     查出来的 row 留着，等下 entry_link 上还要用它做预认证。 */
+  let prof = null;
   try {
-    const me = await env.DB.prepare(
+    prof = await env.DB.prepare(
       'SELECT tr_age, tr_gender, tr_postal FROM users WHERE id = ?'
     ).bind(session.uid).first();
-    await trSyncProfile(c, session.uid, me, ip, cc);
+    await trSyncProfile(c, session.uid, prof, ip, cc);
   } catch (e) {
     console.error('tr sync profile threw:', e && e.message);
   }
@@ -2449,7 +2473,7 @@ async function trSurveyList(request, env) {
      第一个能成功返回的就用，值被拒（非 2xx）就降一档，免得整页空掉。
      实际用的档位和上游回的条数一起写进响应，方便看出是「我们没要够」
      还是「上游就这么多」。 */
-  async function trPull(maxCount) {
+  async function trPull(maxCount, allowExtra) {
     const qs = [
       'api_key=' + encodeURIComponent(c.apiKey),
       'user_id=' + Number(session.uid),
@@ -2460,6 +2484,11 @@ async function trSurveyList(request, env) {
     /* 耗时上限原来卡在 30 分钟，等于把长卷整批挡在门外 —— 那也是库存。
        放到 60：一小时以上的卷确实没人愿意做，但 30~60 分钟这段是实打实的钱。 */
     qs.push('max_loi=60');
+    /* 官方口径：这个参数管的是「进卷之前能不能再问额外的预筛问题」。
+       关掉之后 TR 不能再拿额外问题筛人，用户少挨一轮盘问。
+       代价要说清：预筛本来就是用来精确匹配的，关掉之后被买家自己筛掉的比例会上去，
+       等于用命中率换省事。上游万一把这个参数当非法值，外层阶梯会去掉它再试。 */
+    if (!allowExtra) qs.push('allow_additional_questions=false');
 
     const base = TR_API_SURVEYS + '?' + qs.join('&');
     const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
@@ -2476,17 +2505,24 @@ async function trSurveyList(request, env) {
   let payload = null;
   let upErr = '';
   let maxTried = 0;
-  const ladder = [500, 100, 30];
+  let preAllowed = false;
+  /* 先按「不要额外预筛」要，全挂就退回原样要 —— 宁可被多问几句，
+     也不能因为一个参数把整个大厅搞空。 */
+  const ladder = [
+    [500, false], [100, false], [100, true], [30, true]
+  ];
   for (let li = 0; li < ladder.length; li++) {
-    const got = await trPull(ladder[li]);
+    const got = await trPull(ladder[li][0], ladder[li][1]);
     if (got.payload) {
       payload = got.payload;
-      maxTried = ladder[li];
+      maxTried = ladder[li][0];
+      preAllowed = ladder[li][1];
       upErr = '';
       break;
     }
     upErr = got.upErr || upErr;
-    console.error('tr surveys max_result_count=' + ladder[li] + ' rejected:', got.upErr);
+    console.error('tr surveys try max=' + ladder[li][0] + ' allowExtra=' + ladder[li][1]
+      + ' rejected:', got.upErr);
   }
 
   if (!payload) {
@@ -2524,7 +2560,7 @@ async function trSurveyList(request, env) {
   }
 
   const entries = await Promise.all(
-    picks.map(function (p) { return trSignEntry(c, p.s, session.uid); })
+    picks.map(function (p) { return trSignEntry(c, p.s, session.uid, prof); })
   );
 
   const items = [];
@@ -2569,6 +2605,9 @@ async function trSurveyList(request, env) {
        upstream 顶到 maxTried 说明上游还有货、只是我们只要了这么多；
        upstream 远小于 maxTried 说明上游库存就这些。 */
     upstream: list.length, shown: items.length, maxTried: maxTried,
+    /* preq: false = 已按「进卷前不再问额外预筛」拉到列表；
+       true = 这个参数被上游拒了，退回了默认行为（会问）。 */
+    extraPrequal: preAllowed,
     /* demo / demoHidden 只用于排查：上游给了几份测试卷、其中几份被挡在门外 */
     demo: demoSeen, demoHidden: demoHidden
   });
