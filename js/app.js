@@ -474,14 +474,23 @@
     var sortKey = '';
 
     function fieldVal(s, key) {
-      var v;
-      if (key === 'fc') v = Number(s.price) || 0;
-      else if (key === 'time') v = Number(s.durationMin) || 0;
-      else if (key === 'star') v = Number(s.stars) || 0;
-      else if (key === 'inc') v = Number(s.incidence) || 0;
-      else v = 0;
-      /* 0 一律当「没有这个数据」，两个方向都排到最后，别让它混在最前面 */
-      return v > 0 ? v : -1;
+      if (key === 'fc') return Number(s.price) || 0;
+      if (key === 'time') return Number(s.durationMin) || 0;
+      if (key === 'star') return Number(s.stars) || 0;
+      if (key === 'inc') return Number(s.incidence) || 0;
+      return 0;
+    }
+
+    /* 缺数据的（没写耗时 / 还没人评级 / 拿不到通过率）两个方向都沉底。
+       直接给 -1 是不行的：升序时它会跑到最前面。 */
+    function cmpField(a, b, key, d) {
+      var va = fieldVal(a, key), vb = fieldVal(b, key);
+      var ua = va <= 0, ub = vb <= 0;
+      if (ua && ub) return (Number(b.price) || 0) - (Number(a.price) || 0);
+      if (ua) return 1;
+      if (ub) return -1;
+      var r = va - vb;
+      return d > 0 ? -r : r;
     }
 
     function paintTabs() {
@@ -501,9 +510,8 @@
       /* 三个都未选时保持上游给的顺序（官方推荐序），不做任何排 */
       if (d !== 0) {
         sorted.sort(function (a, b) {
-          var r = fieldVal(a, sortKey) - fieldVal(b, sortKey);
-          if (r === 0) r = (Number(a.price) || 0) - (Number(b.price) || 0);
-          return d > 0 ? -r : r;
+          return cmpField(a, b, sortKey, d) ||
+            ((Number(b.price) || 0) - (Number(a.price) || 0));
         });
       }
 
