@@ -1984,7 +1984,20 @@ async function blGo(request, env) {
  *   - 官方给出的回调来源 IP：157.90.97.92 / 188.40.77.3 / 2a01:4f8:10a:3d8f::2
  *     （目前只记录不拦截：hash 已是可靠凭据，IP 万一换段会一分钱收不到）
  */
-const CPX_HOME_IPS = ['157.90.97.92', '188.40.77.3', '2a01:4f8:10a:3d8f::2'];
+/* CPX 后台明确给出的三个出网地址，只有它们发来的回调才入账。
+   注意这条是硬拦截：万一 CPX 换了出网段，真实回调会被整条挡掉，
+   账上一分不进、而对方后台显示已发送。排查时先查 hook_log 里有没有
+   result 带 ip blocked 的记录，再回 CPX 面板核对这一行。 */
+const CPX_HOME_IPS = ['157.90.97.92', '188.40.3.73', '2a01:4f8:d0a:30ff::2'];
+
+function ipInList(ip, list) {
+  const n = String(ip || '').trim().toLowerCase();
+  if (!n) return false;
+  for (let i = 0; i < list.length; i++) {
+    if (n === String(list[i]).toLowerCase()) return true;
+  }
+  return false;
+}
 
 function cpxConf(env) {
   return {
@@ -2034,7 +2047,9 @@ async function cpxPostback(request, env, url) {
   const c = cpxConf(env);
   const ip = request.headers.get('CF-Connecting-IP') || '';
   const tid = String(p.trans_id || p.transaction_id || '').trim();
-  const given = String(p.hash || '').trim().toLowerCase();
+  /* 参数名以 CPX 那份示例为准是 hash，但文档正文里也叫过 secure_hash，
+     两个都认，免得因为一个名字对不上就把整条回调判死 */
+  const given = String(p.hash || p.secure_hash || '').trim().toLowerCase();
 
   /* 没配密钥：只登记、不入账。回 200 免得它无意义重试 */
   if (!c.secret) {
@@ -2044,20 +2059,25 @@ async function cpxPostback(request, env, url) {
   }
 
   /* 验签：md5(trans_id + '-' + App Security Hash)，32 位十六进制 */
+  let hashOk = true;
   let verdict = 'ok';
-  if (!given) verdict = 'missing hash';
-  else if (!tid) verdict = 'missing trans_id';
-  else if (md5Hex(tid + '-' + c.secret) !== given) verdict = 'bad hash';
+  if (!given) { hashOk = false; verdict = 'missing hash'; }
+  else if (!tid) { hashOk = false; verdict = 'missing trans_id'; }
+  else if (md5Hex(tid + '-' + c.secret) !== given) { hashOk = false; verdict = 'bad hash'; }
 
-  const ipOk = CPX_HOME_IPS.indexOf(ip) >= 0;
+  /* 第二道：CPX 要求只接受它那三个出网 IP。验签本身已经是硬凭据，
+     白名单挡住的是密钥万一外泄之后被人拿去伪造，两道都要过才入账。 */
+  const ipOk = ipInList(ip, CPX_HOME_IPS);
+  if (hashOk && !ipOk) verdict = 'ip blocked';
+
   await hookLog(env, {
     provider: 'cpx', method: request.method,
     params: JSON.stringify(p),
-    tokenLen: given.length, tokenOk: verdict === 'ok' ? 1 : 0,
+    tokenLen: given.length, tokenOk: hashOk ? 1 : 0,
     result: verdict + ' status=' + (p.status || '?') +
       ' type=' + (p.type || '?') +
       ' local=' + (p.amount_local || '?') +
-      ' ip=' + (ipOk ? 'ok' : ip),
+      ' ip=' + (ipOk ? 'ok' : 'blocked'),
     ip: ip
   });
   if (verdict !== 'ok') return mtxText('OK', 200);
