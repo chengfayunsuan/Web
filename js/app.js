@@ -465,16 +465,46 @@
       .catch(function () {});
 
     var all = [];
-    var sort = 'fc';
+
+    /* 排序按钮：四个字段，每个都是三态循环
+         未选 → 首选方向 → 反方向 → 未选
+       时间要反过来：第一下是「短的在前」。
+       同一时刻只有一个字段生效，选中别的会把旧的清掉。 */
+    var sortDir = { fc: 0, time: 0, star: 0, inc: 0 };
+    var sortKey = '';
+
+    function fieldVal(s, key) {
+      var v;
+      if (key === 'fc') v = Number(s.price) || 0;
+      else if (key === 'time') v = Number(s.durationMin) || 0;
+      else if (key === 'star') v = Number(s.stars) || 0;
+      else if (key === 'inc') v = Number(s.incidence) || 0;
+      else v = 0;
+      /* 0 一律当「没有这个数据」，两个方向都排到最后，别让它混在最前面 */
+      return v > 0 ? v : -1;
+    }
+
+    function paintTabs() {
+      document.querySelectorAll('.pg-tab').forEach(function (tab) {
+        var key = tab.getAttribute('data-sort');
+        var base = tab.getAttribute('data-label') || tab.textContent;
+        var d = sortDir[key] || 0;
+        tab.classList.toggle('is-on', d !== 0);
+        tab.textContent = d > 0 ? (base + ' ↓') : (d < 0 ? (base + ' ↑') : base);
+      });
+    }
 
     function paint() {
       var sorted = all.slice();
-      if (sort === 'fc') {
-        sorted.sort(function (a, b) { return Number(b.price) - Number(a.price); });
-      } else if (sort === 'time') {
-        sorted.sort(function (a, b) { return String(b.createdAt).localeCompare(String(a.createdAt)); });
-      } else if (sort === 'star') {
-        sorted.sort(function (a, b) { return (b.stars - a.stars) || (Number(b.price) - Number(a.price)); });
+      var d = sortKey ? (sortDir[sortKey] || 0) : 0;
+
+      /* 三个都未选时保持上游给的顺序（官方推荐序），不做任何排 */
+      if (d !== 0) {
+        sorted.sort(function (a, b) {
+          var r = fieldVal(a, sortKey) - fieldVal(b, sortKey);
+          if (r === 0) r = (Number(a.price) || 0) - (Number(b.price) || 0);
+          return d > 0 ? -r : r;
+        });
       }
 
       list.innerHTML = '';
@@ -494,9 +524,18 @@
 
     document.querySelectorAll('.pg-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
-        document.querySelectorAll('.pg-tab').forEach(function (t) { t.classList.remove('is-on'); });
-        tab.classList.add('is-on');
-        sort = tab.getAttribute('data-sort') || 'fc';
+        var key = tab.getAttribute('data-sort');
+        var first = tab.getAttribute('data-first') === 'asc' ? -1 : 1;
+        var d = sortDir[key] || 0;
+
+        /* 0 → first → -first → 0 */
+        var next = d === 0 ? first : (d === first ? -first : 0);
+
+        Object.keys(sortDir).forEach(function (k) { sortDir[k] = 0; });
+        sortDir[key] = next;
+        sortKey = next === 0 ? '' : key;
+
+        paintTabs();
         paint();
       });
     });

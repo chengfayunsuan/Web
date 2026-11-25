@@ -83,9 +83,10 @@
 
     <div class="pg-tools">
       <div class="pg-tabs">
-        <button class="pg-tab is-on" type="button" data-sort="fc">法币 · 高到低</button>
-        <button class="pg-tab" type="button" data-sort="time">时间 · 最新</button>
-        <button class="pg-tab" type="button" data-sort="star">星级 · 高到低</button>
+        <button class="pg-tab" type="button" data-sort="fc" data-label="积分" data-first="desc">积分</button>
+        <button class="pg-tab" type="button" data-sort="time" data-label="时间" data-first="asc">时间</button>
+        <button class="pg-tab" type="button" data-sort="star" data-label="星级" data-first="desc">星级</button>
+        <button class="pg-tab" type="button" data-sort="inc" data-label="发生率" data-first="desc">发生率</button>
       </div>
     </div>
 
@@ -199,7 +200,7 @@
   </div>
 </footer>
 
-<script src="/js/app.js?v=30" defer></script>
+<script src="/js/app.js?v=31" defer></script>
   <script src="/js/build-notice.js?v=3" defer></script>
 </body>
 </html>

@@ -2514,6 +2514,9 @@ async function trSurveyList(request, env) {
       price: formatFc(Math.round(usd * fx * c.share * FC_SCALE)),
       durationMin: loi,
       stars: Math.round(Number(s.average_rating) || 0),
+      /* 发生率单独给一个数字，前端「发生率」那一列排序要用；
+         原来只有拼进 requirement 的字符串，排不了 */
+      incidence: Math.round(Number(s.incidence) || 0),
       grade: '',
       requirement: '通过率 ' + Math.round(Number(s.incidence) || 0) + '%'
         + (Number(s.completes_required) ? ' · 需 ' + Number(s.completes_required) + ' 份' : ''),
@@ -3071,6 +3074,12 @@ function surveyRow(r) {
     grade: r.grade,
     stars: r.stars,
     requirement: r.requirement,
+    /* 发生率没有独立列，从 requirement 里的「通过率 xx%」抠出来，
+       只给前端排序用；没有就记 0，前端会当成「无数据」排到最后 */
+    incidence: (function () {
+      const m = String(r.requirement || '').match(/(\d{1,3})\s*%/);
+      return m ? Number(m[1]) : 0;
+    })(),
     topic: r.topic,
     durationMin: r.duration_min,
     entry: r.entry_url,
