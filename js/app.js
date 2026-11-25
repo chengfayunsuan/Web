@@ -665,7 +665,7 @@
     if (!window.CF || !CF.money) return trimNum(String(v));
     /* 弹层里的金额跟卡片同口径：XD 取整，XB 两位 */
     var isUsd = CF.currency && CF.currency.mode === 'USD';
-    return CF.money(v, isUsd ? 0 : 2) + ' ' + CF.currency.code;
+    return CF.money(v, isUsd ? 0 : 1) + ' ' + CF.currency.code;
   }
 
   function copyText(text) {
@@ -761,7 +761,7 @@
          XD 模式取整 —— 这些商品按整数乘法刀定价（800 / 480 / 748 / 374），
          汇率一动就抖成 800.38 这种尾巴，看着像乱收费。 */
       var isUsd = window.CF && CF.currency && CF.currency.mode === 'USD';
-      setAmt(b, it.price, isUsd ? 0 : 2);
+      setAmt(b, it.price, isUsd ? 0 : 1);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
       u.textContent = 'XB';
@@ -869,8 +869,8 @@
       var usd = !!(window.CF && CF.currency && CF.currency.mode === 'USD');
       var unit = window.CF ? CF.currency.code : 'XB';
       var MIN_XB = 50;
-      /* XD 模式下 50 元换算出来是 694.4444，向上留到分，免得取整后反而不够门槛 */
-      var minShow = usd ? String(Math.ceil(Number(CF.money(MIN_XB)) * 100) / 100) : '50';
+      /* XD 模式下 50 元约合 748，向上留到 0.1，免得取整后反而不够门槛 */
+      var minShow = usd ? String(Math.ceil(Number(CF.money(MIN_XB)) * 10) / 10) : '50';
 
       /* 填的是当前币种，后端只认 XB：统一过 CF.toBase（XD 是 100 一美元，不能直接乘汇率） */
       function toCfb(v) {

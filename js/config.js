@@ -62,12 +62,16 @@
   }
 
   /* 把 XB 基准值转成当前模式应显示的数字字符串。
-     digits 默认 4 位（账目精度）；问卷报价这种展示用的数传 2，
-     免得汇率除不尽的尾数抖成一串小数。 */
+     全站展示只留 1 位小数：库里的账目是 4 位精度（FC_SCALE=10000），
+     但 0.0001 这种尾巴对用户没意义，反而让每一笔都变长。
+     传 digits 可以再往下压（兑换商品按整数 XD 定价，传 0），但不能超过 1。 */
   function money(v, digits) {
     var n = Number(v) || 0;
     if (mode() === 'USD') n = n / window.CF.rate * XD_PER_USD;
-    return trim(n.toFixed(digits == null ? 4 : digits));
+    var d = digits == null ? 1 : Number(digits);
+    if (!(d >= 0)) d = 1;
+    if (d > 1) d = 1;
+    return trim(n.toFixed(d));
   }
 
   /* 反向：用户在当前模式下填的数字，换回 XB 基准值（后端只认 XB） */

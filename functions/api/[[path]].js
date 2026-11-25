@@ -3318,13 +3318,23 @@ function orderSn(prefix) {
   return prefix + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
 }
 
-function itemRow(r) {
+/* 商品行。
+   定价的真相是 price_xd（整数乘法刀），人民币价由它按当天汇率折算：
+     XD → 美元 = xd / 100，再 × 汇率 = 人民币，× FC_SCALE = units
+   这样 XD 价永远定死，人民币价随汇率浮动，跟商品标价（美元计价）一致。
+   price_xd 为 0 的老商品退回 price_units，不至于算不出价。 */
+function itemRow(r, rate) {
+  const xd = Number(r.price_xd) || 0;
+  const units = (xd > 0 && rate > 0)
+    ? Math.round(xd * rate * 100)
+    : (Number(r.price_units) || 0);
   return {
     id: r.id,
     title: r.title,
     subtitle: r.subtitle,
     kind: r.kind,
-    price: formatFc(r.price_units),
+    price: formatFc(units),
+    priceXd: xd,
     stock: r.stock,
     soldOut: r.stock === 0,
     note: r.note,
@@ -3344,9 +3354,11 @@ async function storeList(request, env) {
   const me = await env.DB.prepare('SELECT fc_units, fc_frozen FROM users WHERE id = ?')
     .bind(session.uid).first();
 
+  const rate = await fxValue(env);
+
   return json({
     ok: true,
-    items: (rows.results || []).map(itemRow),
+    items: (rows.results || []).map(function (r) { return itemRow(r, rate); }),
     wallet: {
       fc: formatFc(me ? me.fc_units : 0),
       fcFrozen: formatFc(me ? me.fc_frozen : 0)
@@ -3373,7 +3385,14 @@ async function storeRedeem(request, env) {
   if (!user) return json({ ok: false, error: 'unauthorized' }, 401);
   if (user.status !== 'active') return json({ ok: false, error: 'account_locked' }, 403);
 
-  const price = item.price_units;
+  /* 扣款跟展示同口径：商品按整数 XD 定价，人民币价由当天汇率折算，
+     所以这里必须现算，不能直接拿库里的 price_units —— 否则汇率一变，
+     用户看到的价和实际扣的钱就对不上。 */
+  const rate = await fxValue(env);
+  const xd = Number(item.price_xd) || 0;
+  const price = (xd > 0 && rate > 0)
+    ? Math.round(xd * rate * 100)
+    : (Number(item.price_units) || 0);
   if (user.fc_units < price) return json({ ok: false, error: 'insufficient_balance' }, 400);
 
   /* 现金档必须有收款账号；订阅档记录用户备注 */
@@ -4356,7 +4375,7 @@ async function adminItemList(env) {
   return json({
     ok: true,
     items: (rows.results || []).map(function (r) {
-      const it = itemRow(r);
+      const it = itemRow(r, 0);
       it.note = r.note;
       it.deliver = r.deliver;
       it.sort = r.sort;
