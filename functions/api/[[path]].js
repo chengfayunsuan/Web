@@ -2112,11 +2112,12 @@ async function cpxPostback(request, env, url) {
     kindRev: 'cpx_reverse',
     label: '问卷墙',
     meta: {
-      /* CPX 不给 offer_id 宏（清单里没有），能区分来源的只有 type */
-      eventId: clickIp,
-      offerId: '',
+      /* offer_id 在 CPX 的宏里写作 {offer_ID}（ID 大写），是唯一能标出
+         具体是哪份问卷的字段；type 说明这次是完成、筛除还是评分奖励 */
+      eventId: String(p.offer_id || clickIp),
+      offerId: String(p.offer_id || ''),
       offerName: type === 'bonus' ? '完成评分奖励'
-        : (type === 'return' || type === 'out' || type === 'screenout')
+        : (type === 'out' || type === 'return' || type === 'screenout')
           ? '筛选补偿' : '问卷',
       payout: String(usd || ''),
       currency: 'USD',
