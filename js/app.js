@@ -618,52 +618,6 @@
         loadStation();
       });
     }
-    /* 问卷画像：年龄 / 性别 / 邮编。
-       TheoremReach 靠这三项匹配问卷，我们一直没往前端开这个口子，
-       数据库里 tr_age / tr_gender / tr_postal 全是空 —— 结果就是
-       每次进墙它都要把「住哪、多大、男女」重新问一遍。
-       填完立刻重拉列表，顺手把画像同步过去。 */
-    function initProf() {
-      var bar = $('profBar');
-      if (!bar) return;
-      var age = $('profAge');
-      var gen = $('profGender');
-      var pos = $('profPostal');
-      var btn = $('profSave');
-      if (!age || !gen || !pos || !btn) return;
-
-      getJSON('/api/user/tr-profile').then(function (r) {
-        if (r.status !== 200 || !r.body || !r.body.ok) return;
-        age.value = r.body.age || '';
-        gen.value = r.body.gender || '';
-        pos.value = r.body.postal || '';
-        bar.hidden = false;
-      });
-
-      btn.addEventListener('click', function () {
-        var a = String(age.value || '').trim();
-        if (a && !/^\d{1,2}$/.test(a)) {
-          say(T('年龄填两位数就行。', 'Age should be one or two digits.'));
-          return;
-        }
-        btn.disabled = true;
-        postJSON('/api/user/tr-profile', {
-          age: a, gender: gen.value || '', postal: String(pos.value || '').trim()
-        }).then(function (r) {
-          btn.disabled = false;
-          if (r.status === 200 && r.body && r.body.ok) {
-            bar.hidden = true;
-            say(T('资料已保存，预选不会再重复问这几项。',
-              'Saved — the profiler will stop asking these again.'));
-            loadAll();
-          } else {
-            say(T('保存失败，稍后再试。', 'Could not save — try again in a moment.'));
-          }
-        });
-      });
-    }
-
-    initProf();
     loadAll();
 
     /* 问卷墙是在新标签页里打开的。答完切回来，这一页还停在跳走前的余额和库存上，
