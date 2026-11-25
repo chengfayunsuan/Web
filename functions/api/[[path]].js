@@ -4876,9 +4876,48 @@ async function adminApi(request, env, url, path) {
   if (path === 'admin/moonetix' && request.method === 'GET') return await adminMtxList(env, url);
   if (path === 'admin/theoremreach/reports' && request.method === 'GET') return await adminTrReports(env, url);
   if (path === 'admin/theoremreach/questions' && request.method === 'GET') return await adminTrQuestions(env, url);
+  if (path === 'admin/theoremreach/user' && request.method === 'GET') return await adminTrUser(env, url);
   if (path === 'admin/traffic' && request.method === 'GET') return await adminTraffic(env, url);
   if (path === 'admin/traffic/track' && request.method === 'GET') return await adminIpTrack(env, url);
   return json({ ok: false, error: 'not_found' }, 404);
+}
+
+/* 后台查某个用户在我们 TR 账号下的真实状态：是否已建档、是否被封、有没有卷。
+   官方口径（publishers/v1/user_details）：
+     { surveys_available, profiled, banned }
+   大厅突然一份不剩时，先看这里 —— 是上游把我们挡了，还是真的没库存。
+   入口：/api/admin/theoremreach/user?uid=3[&ip=1.2.3.4] */
+async function adminTrUser(env, url) {
+  const c = trConf(env);
+  if (!c.apiKey || !c.secretKey) return json({ ok: false, error: 'not_configured' }, 400);
+
+  const uid = Number(url.searchParams.get('uid') || 0);
+  if (!uid) return json({ ok: false, error: 'bad_uid' }, 400);
+
+  /* 没给 ip 就取他最近一次进站的地址，TR 靠它判国家 */
+  let ip = String(url.searchParams.get('ip') || '').trim();
+  if (!ip) {
+    const row = await env.DB.prepare(
+      'SELECT ip FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+    ).bind(uid).first();
+    ip = String((row && row.ip) || '').trim();
+  }
+
+  const base = 'https://api.theoremreach.com/api/publishers/v1/user_details'
+    + '?api_key=' + encodeURIComponent(c.apiKey)
+    + '&user_id=' + uid
+    + (ip ? '&ip=' + encodeURIComponent(ip) : '');
+  const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
+
+  try {
+    const r = await fetch(signed, { headers: { Accept: 'application/json' } });
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); } catch (e) { body = text.slice(0, 300); }
+    return json({ ok: r.ok, http: r.status, uid: uid, ipUsed: ip, detail: body }, 200);
+  } catch (e) {
+    return json({ ok: false, error: String((e && e.message) || e).slice(0, 200) }, 200);
+  }
 }
 
 /* 后台查 TR 在某个国家到底有哪些画像问题、question_id / answer_id 分别是多少。
