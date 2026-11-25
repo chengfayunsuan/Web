@@ -2445,8 +2445,10 @@ async function trSurveyList(request, env) {
   }
   /* 拉一次上游列表。max_result_count 就是我们一次能拿到多少份的硬上限，
      原来写死 30，等于不管上游有多少库存，大厅最多只出现 30 份。
-     官方没把这个参数的天花板写进文档，所以先按 100 要，被拒就退回 30 再要来一次，
-     免得参数值不被接受时整页空掉。 */
+     官方没把这个参数的天花板写进文档，所以按 500 → 100 → 30 阶梯往下试：
+     第一个能成功返回的就用，值被拒（非 2xx）就降一档，免得整页空掉。
+     实际用的档位和上游回的条数一起写进响应，方便看出是「我们没要够」
+     还是「上游就这么多」。 */
   async function trPull(maxCount) {
     const qs = [
       'api_key=' + encodeURIComponent(c.apiKey),
@@ -2455,7 +2457,9 @@ async function trSurveyList(request, env) {
     ];
     if (/^[A-Z]{2}$/.test(cc)) qs.push('country_code=' + cc);
     qs.push('max_result_count=' + maxCount);
-    qs.push('max_loi=30');
+    /* 耗时上限原来卡在 30 分钟，等于把长卷整批挡在门外 —— 那也是库存。
+       放到 60：一小时以上的卷确实没人愿意做，但 30~60 分钟这段是实打实的钱。 */
+    qs.push('max_loi=60');
 
     const base = TR_API_SURVEYS + '?' + qs.join('&');
     const signed = base + '&hash=' + (await trHashOf(c.secretKey, base));
@@ -2469,18 +2473,20 @@ async function trSurveyList(request, env) {
     }
   }
 
-  const first = await trPull(100);
-  let payload = first.payload;
-  let upErr = first.upErr;
-  if (!payload) {
-    const retry = await trPull(30);
-    if (retry.payload) {
-      console.error('tr surveys max_result_count=100 rejected, fell back to 30:', upErr);
-      payload = retry.payload;
+  let payload = null;
+  let upErr = '';
+  let maxTried = 0;
+  const ladder = [500, 100, 30];
+  for (let li = 0; li < ladder.length; li++) {
+    const got = await trPull(ladder[li]);
+    if (got.payload) {
+      payload = got.payload;
+      maxTried = ladder[li];
       upErr = '';
-    } else {
-      upErr = retry.upErr || upErr;
+      break;
     }
+    upErr = got.upErr || upErr;
+    console.error('tr surveys max_result_count=' + ladder[li] + ' rejected:', got.upErr);
   }
 
   if (!payload) {
@@ -2558,9 +2564,11 @@ async function trSurveyList(request, env) {
 
   return json({
     ok: true, items: items, count: items.length, country: cc,
-    /* upstream = 上游这次实际回了几份（截断前），shown = 落到大厅的份数。
-       两个数一对比就知道是上游没库存，还是我们中途丢卷了。 */
-    upstream: list.length, shown: items.length,
+    /* upstream = 上游这次实际回了几份（截断前），shown = 落到大厅的份数，
+       maxTried = 最终被接受的那个 max_result_count 档位。
+       upstream 顶到 maxTried 说明上游还有货、只是我们只要了这么多；
+       upstream 远小于 maxTried 说明上游库存就这些。 */
+    upstream: list.length, shown: items.length, maxTried: maxTried,
     /* demo / demoHidden 只用于排查：上游给了几份测试卷、其中几份被挡在门外 */
     demo: demoSeen, demoHidden: demoHidden
   });
