@@ -2087,6 +2087,9 @@ async function cpxPostback(request, env, url) {
   const local = Number(p.amount_local || 0);
   const usd = Number(p.amount_usd || 0);
   const type = String(p.type || '').trim().toLowerCase();
+  /* ip_click 是用户点击墙时的真实 IP，比这条回调的服务器 IP 有用：
+     它才是判 country_mismatch 与刷号的那一个 */
+  const clickIp = String(p.ip_click || '').trim();
 
   if (!Number.isInteger(uid) || uid <= 0) return mtxText('OK', 200);
   if (!tid) return mtxText('OK', 200);
@@ -2109,13 +2112,15 @@ async function cpxPostback(request, env, url) {
     kindRev: 'cpx_reverse',
     label: '问卷墙',
     meta: {
-      eventId: String(p.offer_id || ''),
-      offerId: String(p.offer_id || ''),
+      /* CPX 不给 offer_id 宏（清单里没有），能区分来源的只有 type */
+      eventId: clickIp,
+      offerId: '',
       offerName: type === 'bonus' ? '完成评分奖励'
-        : (type === 'return' ? '筛选补偿' : '问卷'),
+        : (type === 'return' || type === 'out' || type === 'screenout')
+          ? '筛选补偿' : '问卷',
       payout: String(usd || ''),
       currency: 'USD',
-      ip: ip
+      ip: clickIp || ip
     }
   });
 
