@@ -663,7 +663,9 @@
   /* 弹层文案里的金额：按当前显示币种换算并带单位，避免说「扣 20」而界面是 XD */
   function curText(v) {
     if (!window.CF || !CF.money) return trimNum(String(v));
-    return CF.money(v) + ' ' + CF.currency.code;
+    /* 弹层里的金额跟卡片同口径：XD 取整，XB 两位 */
+    var isUsd = CF.currency && CF.currency.mode === 'USD';
+    return CF.money(v, isUsd ? 0 : 2) + ' ' + CF.currency.code;
   }
 
   function copyText(text) {
@@ -754,9 +756,12 @@
       p.className = 'st-item__p';
 
       var b = document.createElement('b');
-      /* 兑换价按两位显示：库里这是 XB 基准，换到 XD 会带一串尾数
-         （如 53.4508 XB → 800.0006 XD），两位才是用户该看到的数 */
-      setAmt(b, it.price, 2);
+      /* 兑换价：库里存的是 XB 基准。
+         XB 模式本来就是整数或两位，照旧两位显示；
+         XD 模式取整 —— 这些商品按整数乘法刀定价（800 / 480 / 748 / 374），
+         汇率一动就抖成 800.38 这种尾巴，看着像乱收费。 */
+      var isUsd = window.CF && CF.currency && CF.currency.mode === 'USD';
+      setAmt(b, it.price, isUsd ? 0 : 2);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
       u.textContent = 'XB';
