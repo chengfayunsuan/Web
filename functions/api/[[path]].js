@@ -2065,10 +2065,16 @@ async function cpxPostback(request, env, url) {
   else if (!tid) { hashOk = false; verdict = 'missing trans_id'; }
   else if (md5Hex(tid + '-' + c.secret) !== given) { hashOk = false; verdict = 'bad hash'; }
 
-  /* 第二道：CPX 要求只接受它那三个出网 IP。验签本身已经是硬凭据，
-     白名单挡住的是密钥万一外泄之后被人拿去伪造，两道都要过才入账。 */
+  /* 第二道：CPX 给的出网 IP 白名单。
+     这里只做标记、不拦 —— 签名（md5(tid + secret)）才是硬凭据，
+     没有 secret 伪造不出来。而硬拦的代价是真实的：一旦它换了出口 IP
+     （2026-11-26 实测探测请求就来自 AWS 54.82.20.220，不是文档里那几个），
+     真实奖励会被挡在门外，我们还会回 200 让对方以为送达 —— 钱直接丢。
+     IP 对不上就记 ip=offlist，出了问题靠日志捞，不靠拦。 */
   const ipOk = ipInList(ip, CPX_HOME_IPS);
-  if (hashOk && !ipOk) verdict = 'ip blocked';
+  if (hashOk && !ipOk) {
+    console.warn('cpx postback from off-list ip:', ip, 'tid=' + tid);
+  }
 
   await hookLog(env, {
     provider: 'cpx', method: request.method,
@@ -2077,7 +2083,7 @@ async function cpxPostback(request, env, url) {
     result: verdict + ' status=' + (p.status || '?') +
       ' type=' + (p.type || '?') +
       ' local=' + (p.amount_local || '?') +
-      ' ip=' + (ipOk ? 'ok' : 'blocked'),
+      ' ip=' + (ipOk ? 'ok' : 'offlist'),
     ip: ip
   });
   if (verdict !== 'ok') return mtxText('OK', 200);
