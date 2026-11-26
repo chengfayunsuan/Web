@@ -1671,11 +1671,17 @@ async function trLink(request, env) {
    exchange_rate / transaction_id / external_id / partner_id，并且整条 URL 要签 hash；
    不签或不传这些，它会走进默认流程（默认国家、默认汇率），奖励归属也对不上。
    exchange_rate 下限 10，意思是 1 美元 = 10 个币，我们报 69 XD（见 trConf）。 */
-async function trEntryUrl(c, uid, debug) {
+async function trEntryUrl(c, uid, debug, entry) {
+  /* 两个入口别混：
+       router    —— 路由型，进去由它派一份卷，用户没得挑
+       offerwall —— 墙型，进去是它自己的问卷列表，能看见每份多少分
+     面板里 app 的类型决定哪个能用，走错会报 API key 无效或直接 404。 */
+  const base = TR_ENTRY[entry] || c.wall;
+
   /* 没有 partner_id 就先别上签名链接：官方标了必填，少了可能被直接拒，
      比现在的裸链接更糟。等面板里拿到 Placements ID 再启用这一段。 */
   if (!c.partnerId) {
-    return c.wall + '?api_key=' + encodeURIComponent(c.apiKey) + '&user_id=' + Number(uid);
+    return base + '?api_key=' + encodeURIComponent(c.apiKey) + '&user_id=' + Number(uid);
   }
 
   const qs = [
@@ -1695,7 +1701,7 @@ async function trEntryUrl(c, uid, debug) {
   if (c.partnerId) qs.push('partner_id=' + encodeURIComponent(c.partnerId));
   if (debug) qs.push('debug=true');
 
-  const url = c.wall + '?' + qs.join('&');
+  const url = base + '?' + qs.join('&');
   /* 没有 secret 就签不了名，退回裸链接，至少还能进 */
   if (!c.secretKey) return url;
   return url + '&hash=' + (await trHashOf(c.secretKey, url));
@@ -1715,8 +1721,12 @@ async function trGo(request, env) {
 
   /* ?debug=1 走官方测试模式：只出 1 道题的问卷，专门用来验证回调，
      绝不能让它进生产流量 */
-  const debug = /^(1|true|yes)$/i.test(new URL(request.url).searchParams.get('debug') || '');
-  const target = await trEntryUrl(c, session.uid, debug);
+  const sp = new URL(request.url).searchParams;
+  const debug = /^(1|true|yes)$/i.test(sp.get('debug') || '');
+  /* ?wall=1 走墙型入口：进 TR 自己的问卷列表，用户能看见每份多少分再挑。
+     不带就还是路由型（它直接派一份，省事但看不见价）。 */
+  const wantWall = /^(1|true|yes|wall|offerwall)$/i.test(sp.get('wall') || '');
+  const target = await trEntryUrl(c, session.uid, debug, wantWall ? 'offerwall' : 'router');
   return new Response(null, {
     status: 302,
     headers: {
