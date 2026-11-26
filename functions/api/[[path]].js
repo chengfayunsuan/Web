@@ -108,8 +108,28 @@ function hostAllowed(host) {
   });
 }
 
-/* 返回空串表示通过，否则返回错误码 */
-async function verifyTurnstile(request, env, token) {
+/* 返回空串表示通过，否则返回错误码。
+   bypass：临时通行口令。Turnstile 在国内经常整个脚本都加载不出来，
+   验证框只能一直红着，人被挡在门外。口令存在 app_meta 表的 turnstile_pass，
+   当面给需要的人，随时可以改或删；每次使用都打日志，事后能查。 */
+async function verifyTurnstile(request, env, token, bypass) {
+  const code = String(bypass || '').trim();
+  if (code && code.length <= 64) {
+    try {
+      const row = await env.DB.prepare(
+        "SELECT v FROM app_meta WHERE k = 'turnstile_pass'"
+      ).first();
+      const want = String((row && row.v) || '').trim();
+      if (want && code === want) {
+        console.warn('turnstile bypassed:', ipOf(request), 'ua=' +
+          String(request.headers.get('User-Agent') || '').slice(0, 60));
+        return '';
+      }
+    } catch (e) {
+      console.error('turnstile bypass lookup failed:', e && e.message);
+    }
+  }
+
   const secret = env.TURNSTILE_SECRET;
   if (!secret) return 'verify_unconfigured';
   if (typeof token !== 'string' || !token || token.length > 2048) return 'turnstile_failed';
@@ -159,7 +179,7 @@ async function register(request, env, url) {
   if (!body) return json({ ok: false, error: 'bad_request' }, 400);
 
   // 先过机器验证，再碰密码和数据库
-  const tsErr = await verifyTurnstile(request, env, body.turnstileToken);
+  const tsErr = await verifyTurnstile(request, env, body.turnstileToken, body.bypass);
   if (tsErr) return json({ ok: false, error: tsErr }, tsErr === 'verify_unavailable' ? 503 : 400);
 
   const email = String(body.email || '').trim().toLowerCase();
@@ -219,7 +239,7 @@ async function login(request, env, url) {
   if (!body) return json({ ok: false, error: 'bad_request' }, 400);
 
   // 先过机器验证，再查失败计数和密码
-  const tsErr = await verifyTurnstile(request, env, body.turnstileToken);
+  const tsErr = await verifyTurnstile(request, env, body.turnstileToken, body.bypass);
   if (tsErr) return json({ ok: false, error: tsErr }, tsErr === 'verify_unavailable' ? 503 : 400);
 
   // 登录标识是用户名；老用户习惯填邮箱，也一并认
@@ -1023,7 +1043,7 @@ async function resetSendCode(request, env) {
   if (!body) return json({ ok: false, error: 'bad_request' }, 400);
 
   /* 不需要登录的接口，不挡人机验证就成了免费发信机 */
-  const ts = await verifyTurnstile(request, env, body.turnstileToken);
+  const ts = await verifyTurnstile(request, env, body.turnstileToken, body.bypass);
   if (ts) return json({ ok: false, error: ts }, 403);
 
   const email = String(body.email || '').trim().toLowerCase();

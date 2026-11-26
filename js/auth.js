@@ -17,6 +17,21 @@
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   var NAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_-]{2,20}$/;
 
+  /* 临时通行口令：Turnstile 在国内经常连脚本都拉不下来，验证条只能一直红着，
+     人被挡在门外。带 ?k=口令 打开一次，就写进本机，之后登录 / 注册 / 找回
+     都不再要求人机验证。口令存在服务端 app_meta 的 turnstile_pass，
+     随时可以换或删；没有口令的人行为完全不变。 */
+  var PASS_KEY = 'cf-ts-pass';
+  (function () {
+    try {
+      var m = location.search.match(/[?&]k=([A-Za-z0-9_-]{4,64})/);
+      if (m) localStorage.setItem(PASS_KEY, m[1]);
+    } catch (e) {}
+  })();
+  function passCode() {
+    try { return localStorage.getItem(PASS_KEY) || ''; } catch (e) { return ''; }
+  }
+
   /* ---------- 已登录就不再停在入口页，直接进账户 ---------- */
 
   var revealAuth = function () {
@@ -385,9 +400,11 @@
       return;
     }
 
-    /* 还没点验证条就没 token，直接拦下，别白发一次请求 */
+    /* 还没点验证条就没 token，直接拦下，别白发一次请求。
+       带通行口令的人不需要这一步 —— 他们那边验证控件本来就用不了。 */
     var tsToken = vLogin ? vLogin.token() : '';
-    if (!tsToken) {
+    var pass = passCode();
+    if (!tsToken && !pass) {
       noteEl.textContent = T('请先点击上方「点击完成人机验证」。', 'Complete the human check above first.');
       noteEl.classList.add('is-error');
       if (vLogin) vLogin.focus();
@@ -402,8 +419,8 @@
 
     try {
       var payload = mode === 'signup'
-        ? { username: usernameEl.value.trim(), email: emailEl.value.trim(), password: pwEl.value, turnstileToken: tsToken }
-        : { username: usernameEl.value.trim(), password: pwEl.value, turnstileToken: tsToken };
+        ? { username: usernameEl.value.trim(), email: emailEl.value.trim(), password: pwEl.value, turnstileToken: tsToken, bypass: pass }
+        : { username: usernameEl.value.trim(), password: pwEl.value, turnstileToken: tsToken, bypass: pass };
 
       var res = await fetch(mode === 'signup' ? '/api/auth/register' : '/api/auth/login', {
         method: 'POST',
@@ -548,7 +565,8 @@
     }
 
     var tsTok = vReset ? vReset.token() : '';
-    if (!tsTok) {
+    var pass = passCode();
+    if (!tsTok && !pass) {
       rsNote.textContent = T('请先点击下方「点击完成人机验证」。', 'Complete the human check below first.');
       rsNote.classList.add('is-error');
       if (vReset) vReset.focus();
@@ -561,7 +579,7 @@
     fetch('/api/auth/reset/code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, turnstileToken: tsTok })
+      body: JSON.stringify({ email: email, turnstileToken: tsTok, bypass: pass })
     })
       .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, body: d }; }); })
       .then(function (r) {
