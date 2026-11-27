@@ -328,6 +328,19 @@
     return fmtDate(iso);
   }
 
+  /* 流水来源：kind → 展示名。reverse 与对应 reward 同源 */
+  var SRC = {
+    survey_reward: { zh: '站内问卷', en: 'Site survey' },
+    cpx_reward: { zh: 'CPX', en: 'CPX' },
+    theoremreach_reward: { zh: 'TheoremReach', en: 'TheoremReach' },
+    opinionuniverse_reward: { zh: 'Opinion Universe', en: 'Opinion Universe' },
+    moonetix_reward: { zh: 'Moonetix', en: 'Moonetix' },
+    cpx_reverse: { zh: 'CPX', en: 'CPX' },
+    theoremreach_reverse: { zh: 'TheoremReach', en: 'TheoremReach' },
+    opinionuniverse_reverse: { zh: 'Opinion Universe', en: 'Opinion Universe' },
+    moonetix_reverse: { zh: 'Moonetix', en: 'Moonetix' }
+  };
+
   function loadExhibit() {
     var list = $('exhList');
     if (!list) return;
@@ -364,9 +377,10 @@
 
           var what = document.createElement('span');
           what.className = 'exh__what';
+          var src = SRC[it.kind];
           what.textContent = it.up
-            ? T('完成问卷', 'Survey done')
-            : T('入账冲回', 'Reversed');
+            ? T('完成问卷 · ' + (src ? src.zh : ''), 'Survey done · ' + (src ? src.en : ''))
+            : T('入账冲回 · ' + (src ? src.zh : ''), 'Reversed · ' + (src ? src.en : ''));
           li.appendChild(what);
 
           var amt = document.createElement('span');

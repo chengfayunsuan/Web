@@ -3171,7 +3171,7 @@ const FEED_KINDS = [
 
 async function feedRecent(request, env) {
   const r = await env.DB.prepare(
-    `SELECT l.delta AS d, l.created_at AS t, u.username AS n
+    `SELECT l.delta AS d, l.kind AS k, l.created_at AS t, u.username AS n
        FROM fc_ledger l JOIN users u ON u.id = l.uid
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
@@ -3180,7 +3180,7 @@ async function feedRecent(request, env) {
       ORDER BY l.id DESC
       LIMIT 50`
   ).bind.apply(env.DB.prepare(
-    `SELECT l.delta AS d, l.created_at AS t, u.username AS n
+    `SELECT l.delta AS d, l.kind AS k, l.created_at AS t, u.username AS n
        FROM fc_ledger l JOIN users u ON u.id = l.uid
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
@@ -3194,6 +3194,7 @@ async function feedRecent(request, env) {
     const xd = Number(x.d) / FC_SCALE;
     return {
       name: String(x.n || '').trim().slice(0, 24) || '匿名',
+      kind: String(x.k || ''),
       xd: Math.round(xd * 10) / 10,
       up: xd > 0,
       at: toIso(String(x.t || ''))
