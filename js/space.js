@@ -574,9 +574,11 @@
 
     setAmt($('fcFrozen'), u.fcFrozen == null ? '0' : u.fcFrozen);
 
+    /* 本级内进度：exp - 本级起点；总分只给本级跨度，不带历史累计 */
+    var inLevel = Math.max(0, Math.min(span, exp - start));
     $('lv').textContent = lv;
-    $('expNow').textContent = exp;
-    $('expNext').textContent = next;
+    $('expNow').textContent = inLevel;
+    $('expNext').textContent = span;
     $('aff').textContent = u.affinity || 0;
 
     var hint = $('expHint');

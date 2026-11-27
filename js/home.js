@@ -252,11 +252,13 @@
 
     var range = levelRange(user.level);
     var span = range.to - range.from;
-    var pct = span > 0 ? ((user.exp - range.from) / span) * 100 : 0;
+    /* 只显示本级内的进度：不把前面等级攒的分算进来 */
+    var inLevel = Math.max(0, Math.min(span, user.exp - range.from));
+    var pct = span > 0 ? (inLevel / span) * 100 : 0;
     pct = Math.max(0, Math.min(100, pct));
 
-    $('expText').textContent = user.exp;
-    $('expNext').textContent = range.to;
+    $('expText').textContent = inLevel;
+    $('expNext').textContent = span;
 
     requestAnimationFrame(function () {
       $('expBar').style.width = pct + '%';
