@@ -57,6 +57,14 @@
     return s.replace(/0+$/, '').replace(/\.$/, '');
   }
 
+  /* 切币种后数字长度会变（12.6 → 189.2），余额的字号判断要跟着重算 */
+  if (window.CF && CF.onChange) {
+    CF.onChange(function () {
+      var el = $('fc');
+      if (el) el.classList.toggle('is-long', el.textContent.length > 7);
+    });
+  }
+
   function fmtDate(iso) {
     if (!iso) return '—';
     var d = new Date(iso);
@@ -518,11 +526,14 @@
     var pct = ((exp - start) / 100) * 100;
     pct = Math.max(0, Math.min(100, pct));
 
-    /* 余额是这块的主数字，位数多了要缩字号，免得撑破格子 */
-    var fcText = trimNum(u.fc == null ? '0' : u.fc);
+    /* 余额是这块的主数字，位数多了要缩字号，免得撑破格子。
+       必须走 CF.amount：只写 textContent、不写 data-cfb 的话，
+       切到 XD 时单位跟着变了、数字还是 XB，就成了「12.6308 XD」。 */
     var fcEl = $('fc');
-    fcEl.textContent = fcText;
-    fcEl.classList.toggle('is-long', fcText.length > 7);
+    var fcVal = u.fc == null ? '0' : u.fc;
+    if (window.CF && CF.amount) CF.amount(fcEl, fcVal);
+    else fcEl.textContent = trimNum(fcVal);
+    fcEl.classList.toggle('is-long', fcEl.textContent.length > 7);
 
     setAmt($('fcFrozen'), u.fcFrozen == null ? '0' : u.fcFrozen);
 

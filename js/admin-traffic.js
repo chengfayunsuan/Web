@@ -465,7 +465,7 @@
       var u = d && d.user;
       if (!u) return;
       var bal = $('navBal');
-      if (bal) bal.textContent = u.fc;
+      if (bal) { if (window.CF && CF.amount) CF.amount(bal, u.fc); else bal.textContent = u.fc; }
       var nm = $('navName');
       if (nm) nm.textContent = u.username || '我';
     })
