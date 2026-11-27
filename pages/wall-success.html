@@ -38,7 +38,7 @@
   var el = document.getElementById('wlAmt');
   if (!el) return;
   var money = (window.CF && CF.money) ? CF.money(n) : String(n);
-  var unit = (window.CF && CF.currency) ? CF.currency.code : 'XB';
+  var unit = (window.CF && CF.currency) ? CF.currency.code : 'XD';
   el.textContent = '本次 +' + money + ' ' + unit;
   el.hidden = false;
 })();

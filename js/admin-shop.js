@@ -88,7 +88,7 @@
     setAmt(b, v);
     var i = document.createElement('i');
     i.setAttribute('data-cur', 'code');
-    i.textContent = 'XB';
+    i.textContent = 'XD';
     el.appendChild(b);
     el.appendChild(i);
     return el;
@@ -239,7 +239,7 @@
     var owner = cell(cd.itemId ? ('商品 #' + cd.itemId) : '通用');
     row.appendChild(owner);
 
-    row.appendChild(cell(cd.value ? cd.value + ' XB' : '—'));
+    row.appendChild(cell(cd.value ? cd.value + ' XD' : '—'));
 
     var st = document.createElement('span');
     st.className = 'adm-cell';

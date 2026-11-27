@@ -9,7 +9,8 @@
  *
  * 依赖 D1 绑定 DB，表结构见 db/schema.sql
  *
- * 法币以「万分之一 fc」为整数单位存储，接口层统一输出 4 位小数字符串。
+ * 站内只有一种货币：XD（乘法刀，100 XD = 1 USD）。
+ * 金额以「万分之一 XD」的整数存储（FC_SCALE = 10000），接口层输出小数字符串。
  */
 
 const COOKIE_NAME = 'cf_session';
@@ -1173,8 +1174,9 @@ async function updatePassword(request, env) {  const session = await currentSess
 
 /* ---------------- Moonetix 广告墙 ----------------
  *
- * Moonetix 是 offerwall 联盟（不是问卷商）：用户完成广告主的任务，服务商给发布方
- * 结算美元，我们按自定汇率折成 XB 发给用户。奖励只能来自服务端回调，不能信前端。
+ * Moonetix 是 offerwall 联盟（不是问卷商）：面板里把 app 货币设成 XD，
+ * 回调里的 {reward} 已是按面板汇率与分成算好的 XD，直接按 XD 记账。
+ * 奖励只能来自服务端回调，不能信前端。
  *
  * 两种模式：
  *   live —— 配齐 MOONETIX_APP_ID / MOONETIX_LINK_SALT / MOONETIX_POSTBACK_KEY，
@@ -1187,12 +1189,12 @@ async function updatePassword(request, env) {  const session = await currentSess
 
 const MTX_WALL = 'https://wall.moonetix.com/';
 
-/* 模拟墙里的任务，仅 demo 模式使用；面额是人话，单位 XB */
+/* 模拟墙里的任务，仅 demo 模式使用；面额是人话，单位 XD */
 const MTX_DEMO_OFFERS = [
-  { id: 'demo-video', name: '看完 30 秒产品视频', reward: 1.5 },
-  { id: 'demo-install', name: '安装并打开一款应用', reward: 4 },
-  { id: 'demo-signup', name: '注册试用账号并完成引导', reward: 8 },
-  { id: 'demo-level', name: '把游戏玩到第 5 关', reward: 12 }
+  { id: 'demo-video', name: '看完 30 秒产品视频', reward: 21 },
+  { id: 'demo-install', name: '安装并打开一款应用', reward: 56 },
+  { id: 'demo-signup', name: '注册试用账号并完成引导', reward: 113 },
+  { id: 'demo-level', name: '把游戏玩到第 5 关', reward: 169 }
 ];
 
 function mtxConf(env) {
@@ -1486,6 +1488,7 @@ async function mtxPostback(request, env, url) {
   if (status !== 1 && status !== 2) return mtxText('bad parameters', 400);
   if (!isFinite(reward) || reward < 0) return mtxText('bad parameters', 400);
 
+  /* 面板里 app 货币已设成 XD，{reward} 就是算好的 XD 面额，直接 ×FC_SCALE 记账 */
   const res = await mtxApply(env, {
     uid: uid,
     tid: tid,
@@ -1531,7 +1534,7 @@ async function mtxMockComplete(request, env) {
     meta: {
       offerId: offer.id,
       offerName: offer.name,
-      currency: 'XB',
+      currency: 'XD',
       payout: '0',
       ip: request.headers.get('CF-Connecting-IP') || ''
     }
@@ -1560,7 +1563,7 @@ async function mtxMockComplete(request, env) {
  *
  * 环境变量：
  *   THEOREMREACH_API_KEY  面板里的 API Key，同时用来校验 auth_token
- *   THEOREMREACH_XB_PER   1 个 reward_amount 折多少 XB，默认 1
+ *   THEOREMREACH_XB_PER   旧系数，已废弃不再使用
  */
 
 /* 入口路径看面板里 app 的类型（App Details 页面):
@@ -1572,11 +1575,12 @@ const TR_ENTRY = {
   offerwall: 'https://theoremreach.com/respondent_entry/direct'
 };
 
-/* 对外只报 XD。两种币各管一段，别混：
- *   XB —— 站内记账单位，锚人民币，1 XB = 1 元，不出门（台账、明细、余额都它）
- *   XD —— 对外展示单位，锚美元，100 XD = 1 USD，问卷墙、报价、提现都它
- * 这个数要跟 js/config.js 里的 XD_PER_USD 保持一致，改一处必须改两处。 */
+/* 全站只用 XD（乘法刀），100 XD = 1 USD，台账、明细、余额、报价、提现都是它。
+ * 这个换算只用于把服务商回传的美元折成 XD（USD × 100）。 */
 const XD_PER_USD = 100;
+
+/* 单笔上限的保险丝：防止服务商 bug 一次打进天价，10000 XD = 100 美元 */
+const TR_MAX_XD = 10000;
 
 function trConf(env) {
   const apiKey = String(env.THEOREMREACH_API_KEY || '').trim();
@@ -1590,7 +1594,6 @@ function trConf(env) {
   /* 分给用户的比例（按它实付的美元算）与单笔上限（防止它某个 bug 一次打进天价） */
   const shareRaw = Number(env.THEOREMREACH_SHARE || 0.69);
   const share = isFinite(shareRaw) && shareRaw > 0 && shareRaw <= 1 ? shareRaw : 0.69;
-  const maxXb = Number(env.THEOREMREACH_MAX_XB || 500);
   const per = Number(env.THEOREMREACH_XB_PER || 1);
   /* 官方要求 entry 链接必须带这些：partner_id（面板里的 Placement）、
      exchange_rate、currency_name_plural / singular。
@@ -1611,7 +1614,6 @@ function trConf(env) {
     curName,
     wall: TR_ENTRY[mode] || TR_ENTRY.router,
     share: share,
-    maxXb: isFinite(maxXb) && maxXb > 0 ? maxXb : 500,
     xbPer: isFinite(per) && per > 0 ? per : 1,
     live: !!(token || pathKey || secretKey)
   };
@@ -1847,14 +1849,12 @@ async function ouPostback(request, env, url) {
     return mtxText('1', 200);
   }
 
-  /* OU 的 {PAYOUT} 单位是 XD（面板 currency_name=XD，100 XD=1 USD），
+  /* OU 的 {PAYOUT} 单位就是 XD（面板 currency_name=XD，100 XD=1 USD），
      而且已经按面板分成算好：实证 0.14 USD × 100 × 0.69 = 9.66 ≈ 回传的 9.7。
-     所以要按 XD→XB 换算：reward / 100 × 实时汇率。
-     2026-11-22 曾当成 XB 直接入账，多发约 15 倍，线上已冲正，别再改回去。 */
-  const fx = await fxValue(env);
+     直接按 XD 记账，不再折人民币。 */
   const res = await mtxApply(env, {
     uid: uid, tid: tid, status: status,
-    units: Math.round(reward / XD_PER_USD * fx * FC_SCALE),
+    units: Math.round(reward * FC_SCALE),
     provider: 'opinionuniverse',
     kind: 'opinionuniverse_reward',
     kindRev: 'opinionuniverse_reverse',
@@ -1883,7 +1883,7 @@ async function ouPostback(request, env, url) {
  *     uid / xd / usd / tx / type / reason / ref
  *
  * 金额口径：VALUE:CURRENCY 是我们面板里设的 App Currency（已设成 XD，$1=69），
- * 跟 OU 一样是「XD」，不是 XB。所以入账要 XD/100*汇率 折成 XB，别直接当 XB 发。 */
+ * 回传即 XD，直接按 XD 记账。 */
 async function blPostback(request, env, url) {
   const p = await mtxParams(request, url);
   const secret = String(env.BITLABS_SECRET || '').trim();
@@ -1946,8 +1946,7 @@ async function blPostback(request, env, url) {
   if (!tid) return mtxText('OK', 200);
 
   /* 冲正回传的 value 已经是负数；取绝对值交给 mtxApply 按 status=2 扣 */
-  const fx = await fxValue(env);
-  const units = Math.round(Math.abs(xd) / XD_PER_USD * fx * FC_SCALE);
+  const units = Math.round(Math.abs(xd) * FC_SCALE);
 
   /* 0 元（比如 $0 的安装任务）不写账，但仍回 200 */
   if (units <= 0) return mtxText('OK', 200);
@@ -2134,10 +2133,8 @@ async function cpxPostback(request, env, url) {
 
   /* 金额口径：amount_local 已经是「用户应得的 XD」——
      主卷按 factor=69 算、bonus 按 factor=100 算，CPX 都算好了。
-     所以一律 local/100*汇率 折成 XB，绝不能用 usd*69 反推，
-     否则 bonus 那部分会少给 31%（那是明确要全额给用户的）。 */
-  const fx = await fxValue(env);
-  const units = Math.round(Math.abs(local) / XD_PER_USD * fx * FC_SCALE);
+     直接按 XD 记账，绝不能用 usd 反推，否则 bonus 那部分会少给 31%。 */
+  const units = Math.round(Math.abs(local) * FC_SCALE);
   if (units <= 0) return mtxText('OK', 200);
 
   const isRev = status === 2;
@@ -2174,7 +2171,7 @@ async function cpxPostback(request, env, url) {
  * 三条铁律（见 docs/CPX-INTERFACE.md）：
  *   1. href 是 user-based 的，只对当次 ext_user_id 有效 —— 不缓存、不跨用户复用
  *   2. 拉列表签名是 md5(uid + '-' + secret)，和回调的 md5(trans_id + '-' + secret) 不是一套
- *   3. payout 已是分成后的 XD，只做 XD→XB 换算，不要再乘 share；
+ *   3. payout 已是分成后的 XD，直接按 XD 展示，不要再乘 share；
  *      任何失败都回 ok:true + 空列表，绝不 5xx（前端靠空列表退回站内问卷）
  */
 async function cpxSurveyList(request, env) {
@@ -2243,7 +2240,6 @@ async function cpxSurveyList(request, env) {
     return empty('upstream_error');
   }
 
-  const fx = await fxValue(env);
   const list = Array.isArray(payload.surveys) ? payload.surveys : [];
   const items = [];
   for (let i = 0; i < list.length; i++) {
@@ -2262,8 +2258,8 @@ async function cpxSurveyList(request, env) {
       title: '问卷 #' + sid,
       topic: loi <= 5 ? '快速' : (loi <= 12 ? '常规' : '深度'),
       /* payout 是 CPX 面板 Currency Factor 算好的 XD（回调入账同一口径），
-         这里只做 XD→XB，再乘一次 share 就等于抽两遍，用户少拿 31% */
-      price: formatFc(Math.round(Math.abs(xd) / XD_PER_USD * fx * FC_SCALE)),
+         再乘一次 share 就等于抽两遍，用户少拿 31% */
+      price: formatFc(Math.round(Math.abs(xd) * FC_SCALE)),
       durationMin: loi,
       stars: Math.round(Number(s.statistics_rating_avg) || 0),
       /* CPX 没有 incidence 字段，用 conversion_rate（百分比）顶上，前端发生率排序要用 */
@@ -2384,23 +2380,22 @@ async function trDecide(env, request, p, seg, url) {
   const reversed = /^(1|true|yes|reversal|reversed)$/i.test(flag) || reward < 0;
 
   /* 结算口径：只认美元，其余全是换算的中间量。
-     - 有美元（{reward_amount_in_dollars} / currency）：用户拿 USD × 汇率 × 分成
+     - 有美元（{reward_amount_in_dollars} / currency）：用户拿 USD × 100 × 分成 折成 XD
      - 没美元：{reward} 是 app currency（XD，已经含过分成，因为它按 exchange_rate 折的），
-       先除回美元再乘汇率，结果跟上面那条完全一致；旧系数 xbPer 已废，留着只为不炸配置 */
-  const rate = await fxValue(env);
+       直接按 XD 记账，结果跟上面那条一致；旧系数 xbPer 已废，留着只为不炸配置 */
   const usdAbs = Math.abs(usd);
   let units;
   if (isFinite(usdAbs) && usdAbs > 0) {
-    units = Math.round(usdAbs * rate * c.share * FC_SCALE);
+    units = Math.round(usdAbs * XD_PER_USD * c.share * FC_SCALE);
   } else {
-    units = Math.round(Math.abs(reward) / XD_PER_USD * rate * FC_SCALE);
+    units = Math.round(Math.abs(reward) * FC_SCALE);
   }
 
   /* 0 元事件（筛选未通过常见）不写账，但仍回 200，否则它会一直重试 */
   if (units <= 0) return { body: 'ok ignored', status: 200, ...ok };
 
   /* 单笔保险丝：算出来超过上限就一分不发，只留记录等人工核对 */
-  const capUnits = Math.round(c.maxXb * FC_SCALE);
+  const capUnits = Math.round(TR_MAX_XD * FC_SCALE);
   if (units > capUnits) {
     console.error('tr postback over cap: units=' + units + ' cap=' + capUnits +
       ' usd=' + usd + ' reward=' + reward + ' tid=' + tid);
@@ -2438,7 +2433,7 @@ async function trDecide(env, request, p, seg, url) {
       offerName: baseName + (eventName ? ' · ' + eventName : ''),
       eventId: eventId,
       payout: p.currency || '',
-      currency: 'XB',
+      currency: 'XD',
       ip: p.ip || request.headers.get('CF-Connecting-IP') || ''
     }
   });
@@ -2687,7 +2682,6 @@ async function trSurveyList(request, env) {
     return json({ ok: false, error: 'upstream', detail: upErr }, 200);
   }
 
-  const fx = await fxValue(env);
   const list = Array.isArray(payload.surveys) ? payload.surveys : [];
   const priv = await isPrivileged(env, session.uid);
 
@@ -2734,11 +2728,9 @@ async function trSurveyList(request, env) {
       title: '问卷 #' + s.campaign_id,
       /* 上游不给问卷标题，只有 loi/cpi/incidence，用耗时给个粗档位当标签 */
       topic: (isDemo ? '测试 · ' : '') + (loi <= 5 ? '快速' : (loi <= 12 ? '常规' : '深度')),
-      /* price 一律 XB 口径（元），前端按当前币种自己换。
-         必须保留到 FC_SCALE 全精度（4 位）：只留 2 位的话，前端换成 XD
-         要除以汇率再乘 100，被截掉的那点尾数会被放大成 179.4686 这种
-         四位小数（真值 179.40）。精度留够，前端才能显示出干净的数。 */
-      price: formatFc(Math.round(usd * fx * c.share * FC_SCALE)),
+      /* price 一律 XD 口径：USD × 100 × 分成，保留 FC_SCALE 全精度，
+         前端按 1 位小数展示。 */
+      price: formatFc(Math.round(usd * XD_PER_USD * c.share * FC_SCALE)),
       durationMin: loi,
       stars: Math.round(Number(s.average_rating) || 0),
       /* 发生率单独给一个数字，前端「发生率」那一列排序要用；
@@ -3457,7 +3449,7 @@ async function adminSurveyDelete(request, env) {
 
 /* ---------------- 兑换中心 / 提现 ---------------- */
 
-const WITHDRAW_MIN = 50;                       // 起提金额，单位 fc
+const WITHDRAW_MIN = 800;                       // 起提金额，单位 XD（800 XD = 8 美元）
 const WITHDRAW_CHANNELS = ['alipay', 'wechat', 'paypal', 'payoneer'];
 const CHANNEL_TEXT = {
   alipay: '支付宝', wechat: '微信', paypal: 'PayPal', payoneer: 'Payoneer'
@@ -3469,15 +3461,11 @@ function orderSn(prefix) {
 }
 
 /* 商品行。
-   定价的真相是 price_xd（整数乘法刀），人民币价由它按当天汇率折算：
-     XD → 美元 = xd / 100，再 × 汇率 = 人民币，× FC_SCALE = units
-   这样 XD 价永远定死，人民币价随汇率浮动，跟商品标价（美元计价）一致。
-   price_xd 为 0 的老商品退回 price_units，不至于算不出价。 */
-function itemRow(r, rate) {
+   定价的真相是 price_xd（整数乘法刀），余额也按 XD 记账：
+   price_xd > 0 时直接 ×FC_SCALE 得 units；为 0 的老商品退回 price_units。 */
+function itemRow(r) {
   const xd = Number(r.price_xd) || 0;
-  const units = (xd > 0 && rate > 0)
-    ? Math.round(xd * rate * 100)
-    : (Number(r.price_units) || 0);
+  const units = xd > 0 ? xd * FC_SCALE : (Number(r.price_units) || 0);
   return {
     id: r.id,
     title: r.title,
@@ -3504,11 +3492,9 @@ async function storeList(request, env) {
   const me = await env.DB.prepare('SELECT fc_units, fc_frozen FROM users WHERE id = ?')
     .bind(session.uid).first();
 
-  const rate = await fxValue(env);
-
   return json({
     ok: true,
-    items: (rows.results || []).map(function (r) { return itemRow(r, rate); }),
+    items: (rows.results || []).map(function (r) { return itemRow(r); }),
     wallet: {
       fc: formatFc(me ? me.fc_units : 0),
       fcFrozen: formatFc(me ? me.fc_frozen : 0)
@@ -3535,14 +3521,10 @@ async function storeRedeem(request, env) {
   if (!user) return json({ ok: false, error: 'unauthorized' }, 401);
   if (user.status !== 'active') return json({ ok: false, error: 'account_locked' }, 403);
 
-  /* 扣款跟展示同口径：商品按整数 XD 定价，人民币价由当天汇率折算，
-     所以这里必须现算，不能直接拿库里的 price_units —— 否则汇率一变，
-     用户看到的价和实际扣的钱就对不上。 */
-  const rate = await fxValue(env);
+  /* 扣款跟展示同口径：商品按整数 XD 定价，直接 ×FC_SCALE，
+     不再按汇率换算。 */
   const xd = Number(item.price_xd) || 0;
-  const price = (xd > 0 && rate > 0)
-    ? Math.round(xd * rate * 100)
-    : (Number(item.price_units) || 0);
+  const price = xd > 0 ? xd * FC_SCALE : (Number(item.price_units) || 0);
   if (user.fc_units < price) return json({ ok: false, error: 'insufficient_balance' }, 400);
 
   /* 现金档必须有收款账号；订阅档记录用户备注 */
@@ -4189,7 +4171,7 @@ async function surveySubmit(request, env) {
       steps: [
         '提交答卷（用时 ' + elapsed + ' 秒）',
         '问卷商确认有效：通过质检',
-        '奖励入账 +' + formatFc(reward) + ' XB，经验 +1'
+        '奖励入账 +' + formatFc(reward) + ' XD，经验 +1'
       ]
     });
   }
@@ -4267,7 +4249,7 @@ async function surveySubmit(request, env) {
     user: await userStateOf(env, uid),
     steps: [
       '提交答卷（用时 ' + elapsed + ' 秒）',
-      '首次结算：+' + formatFc(reward) + ' XB，经验 +1',
+      '首次结算：+' + formatFc(reward) + ' XD，经验 +1',
       '问卷商说这份要过质检，先入账，' + SURVEY_REJECT_DELAY + ' 秒后再看结果',
       '这 ' + SURVEY_REJECT_DELAY + ' 秒里余额是真的，可以先花'
     ]
@@ -4525,7 +4507,7 @@ async function adminItemList(env) {
   return json({
     ok: true,
     items: (rows.results || []).map(function (r) {
-      const it = itemRow(r, 0);
+      const it = itemRow(r);
       it.note = r.note;
       it.deliver = r.deliver;
       it.sort = r.sort;
@@ -4545,6 +4527,7 @@ async function adminItemSave(request, env) {
   if (!title) return json({ ok: false, error: 'missing_title' }, 400);
 
   const kind = ITEM_KINDS.indexOf(body.kind) >= 0 ? body.kind : 'code';
+  /* 后台录入的价格就是 XD（整数乘法刀），同时写 price_xd 与等值 price_units */
   const price = Number(body.price);
   if (!isFinite(price) || price <= 0) return json({ ok: false, error: 'bad_price' }, 400);
 
@@ -4554,11 +4537,15 @@ async function adminItemSave(request, env) {
   const sort = isFinite(sortRaw) ? Math.round(sortRaw) : 0;
   const status = body.status === 'off' ? 'off' : 'on';
 
+  const priceXd = Math.round(price);
+  const priceUnits = priceXd * FC_SCALE;
+
   const args = [
     title,
     String(body.subtitle || '').trim().slice(0, 40),
     kind,
-    Math.round(price * FC_SCALE),
+    priceUnits,
+    priceXd,
     stock < -1 ? -1 : stock,
     String(body.note || '').trim().slice(0, 300),
     String(body.deliver || '').trim().slice(0, 300),
@@ -4568,15 +4555,15 @@ async function adminItemSave(request, env) {
 
   if (body.id) {
     await env.DB.prepare(
-      `UPDATE store_items SET title = ?, subtitle = ?, kind = ?, price_units = ?, stock = ?,
+      `UPDATE store_items SET title = ?, subtitle = ?, kind = ?, price_units = ?, price_xd = ?, stock = ?,
         note = ?, deliver = ?, status = ?, sort = ?, updated_at = datetime('now','+8 hours') WHERE id = ?`
     ).bind(...args, Number(body.id)).run();
     return json({ ok: true, id: Number(body.id) });
   }
 
   const res = await env.DB.prepare(
-    `INSERT INTO store_items (title, subtitle, kind, price_units, stock, note, deliver, status, sort)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO store_items (title, subtitle, kind, price_units, price_xd, stock, note, deliver, status, sort)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(...args).run();
 
   return json({ ok: true, id: res.meta && res.meta.last_row_id });
@@ -4802,7 +4789,7 @@ async function adminOrderDecide(request, env) {
     ).bind(id),
     env.DB.prepare(
       `INSERT INTO messages (uid, kind, title, body) VALUES (?, 'system', ?, ?)`
-    ).bind(order.uid, '兑换已退款', '「' + order.item_title + '」已退款 ' + formatFc(order.price_units) + ' XB，金额已回到可用余额。')
+    ).bind(order.uid, '兑换已退款', '「' + order.item_title + '」已退款 ' + formatFc(order.price_units) + ' XD，金额已回到可用余额。')
   ];
 
   if (order.code) {

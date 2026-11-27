@@ -115,7 +115,13 @@
   var KIND = {
     signup_bonus: '注册赠送', survey_reward: '问卷奖励', survey_reject: '答卷驳回',
     withdraw_lock: '提现冻结', withdraw_refund: '提现退回', withdraw_paid: '提现完成',
-    cdk_redeem: '兑换 CDK', admin_adjust: '人工调整', penalty: '违规扣罚'
+    cdk_redeem: '兑换 CDK', admin_adjust: '人工调整', penalty: '违规扣罚',
+    moonetix_reward: '广告墙', moonetix_reverse: '广告墙冲正',
+    opinionuniverse_reward: '任务墙', opinionuniverse_reverse: '任务墙冲正',
+    bitlabs_reward: '问卷墙', bitlabs_reverse: '问卷墙冲正',
+    cpx_reward: '问卷墙', cpx_reverse: '问卷墙冲正',
+    theoremreach_reward: '问卷墙', theoremreach_reverse: '问卷墙冲正',
+    theoremreach_offer: '任务墙', theoremreach_offer_reverse: '任务墙冲正'
   };
   var CHANNEL = { alipay: '支付宝', wechat: '微信', paypal: 'PayPal', payoneer: 'Payoneer' };
   var TICKET_TYPE = { account: '账户与登录', balance: '余额与提现', survey: '问卷与奖励', report: '举报与申诉', other: '其他', feedback: '公告建议' };
@@ -294,7 +300,7 @@
         setAmt(fc, u.fc);
         var fu = document.createElement('i');
         fu.setAttribute('data-cur', 'code');
-        fu.textContent = 'XB';
+        fu.textContent = 'XD';
         fc.appendChild(fu);
 
         var fr = document.createElement('span');
@@ -302,10 +308,10 @@
         setAmt(fr, u.fcFrozen);
         var fru = document.createElement('i');
         fru.setAttribute('data-cur', 'code');
-        fru.textContent = 'XB';
+        fru.textContent = 'XD';
         fr.appendChild(fru);
 
-        /* 展开面板：调整法币 / 状态 / 角色 */
+        /* 展开面板：调整 XD / 状态 / 角色 */
         var exp = document.createElement('div');
         exp.className = 'adm-expand';
 
@@ -313,7 +319,7 @@
         g1.className = 'adm-exp__g';
         var k1 = document.createElement('span');
         k1.className = 'adm-exp__k';
-        k1.textContent = '调整法币';
+        k1.textContent = '调整 XD';
         var inN = document.createElement('input');
         inN.type = 'number'; inN.step = '0.0001'; inN.placeholder = '±金额';
         inN.style.width = '130px';
@@ -381,7 +387,7 @@
           var delta = Number(inN.value);
           if (!delta) { say('请先填调整金额，正加负减'); return; }
           postJSON('/api/admin/users/adjust', { uid: u.uid, delta: delta, memo: inM.value }).then(function (r) {
-            if (r.body && r.body.ok) { say('已调整，最新余额 ' + r.body.fc + ' XB'); load(qInput.value); }
+            if (r.body && r.body.ok) { say('已调整，最新余额 ' + r.body.fc + ' XD'); load(qInput.value); }
             else say('操作失败：' + (r.body && r.body.error || '网络错误'));
           });
         });
@@ -463,7 +469,7 @@
         setAmt(amt, w.amount);
         var au = document.createElement('i');
         au.setAttribute('data-cur', 'code');
-        au.textContent = 'XB';
+        au.textContent = 'XD';
         amt.appendChild(au);
 
         var acc = document.createElement('span');
@@ -788,13 +794,13 @@
       /* 余额概览 */
       var info = document.createElement('p');
       info.className = 'tkd__none';
-      info.textContent = '当前法币 ' + (t.userFc || '0') + ' XB · 冻结 ' + (t.userFrozen || '0') +
-        ' XB · 状态 ' + (STATUS[t.userStatus] || t.userStatus || '—') +
+      info.textContent = '当前 XD ' + (t.userFc || '0') + ' · 冻结 ' + (t.userFrozen || '0') +
+        ' XD · 状态 ' + (STATUS[t.userStatus] || t.userStatus || '—') +
         ' · 角色 ' + (ROLE[t.userRole] || t.userRole || '—');
       box.appendChild(info);
 
-      /* 法币调整 */
-      var g1 = g('调整法币');
+      /* XD 调整 */
+      var g1 = g('调整 XD');
       var inN = document.createElement('input');
       inN.type = 'number'; inN.step = '0.0001'; inN.placeholder = '±金额';
       inN.style.width = '130px';
@@ -811,7 +817,7 @@
         btnAdj.disabled = true;
         postJSON('/api/admin/users/adjust', { uid: t.uid, delta: delta, memo: inM.value })
           .then(function (r) {
-            if (r.body && r.body.ok) { say('已调整，最新余额 ' + r.body.fc + ' XB'); load(); }
+            if (r.body && r.body.ok) { say('已调整，最新余额 ' + r.body.fc + ' XD'); load(); }
             else say('操作失败：' + (r.body && r.body.error || '网络错误'));
             btnAdj.disabled = false;
           });

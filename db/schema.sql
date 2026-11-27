@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
   pw_iter        INTEGER NOT NULL DEFAULT 4000,      -- 派生迭代次数，换算法时按行迁移
   role           TEXT    NOT NULL DEFAULT 'user',    -- owner 站长 / admin 管理员 / premium 大会员 / user 用户
   status         TEXT    NOT NULL DEFAULT 'active',  -- active 正常 / frozen 冻结 / banned 封禁
-  fc_units       INTEGER NOT NULL DEFAULT 0,         -- 可用法币，单位 1/10000 fc，不得为负
-  fc_frozen      INTEGER NOT NULL DEFAULT 0,         -- 冻结法币，提现审核期间不可动用
+  fc_units       INTEGER NOT NULL DEFAULT 0,         -- 可用 XD（100 XD = 1 USD），单位 1/10000 XD，不得为负
+  fc_frozen      INTEGER NOT NULL DEFAULT 0,         -- 冻结 XD，提现审核期间不可动用
   affinity       INTEGER NOT NULL DEFAULT 0,         -- 好感度
   exp            INTEGER NOT NULL DEFAULT 0,         -- 经验值
   level          INTEGER NOT NULL DEFAULT 1,         -- 等级，由经验值结算
@@ -115,7 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_kind ON fc_ledger(kind, created_at);
 CREATE TABLE IF NOT EXISTS withdrawals (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   uid          INTEGER NOT NULL,
-  amount       INTEGER NOT NULL,                   -- 申请金额，单位 1/10000 fc
+  amount       INTEGER NOT NULL,                   -- 申请金额，单位 1/10000 XD
   channel      TEXT    NOT NULL,                   -- alipay / wechat / paypal / payoneer
   account      TEXT    NOT NULL,                   -- 收款账号
   status       TEXT    NOT NULL DEFAULT 'pending', -- pending / approved / paid / rejected
@@ -159,7 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id, created_
 CREATE TABLE IF NOT EXISTS affinity_daily (
   day        TEXT    PRIMARY KEY,              -- 北京时间 YYYY-MM-DD（被结算的那个自然日）
   uid        INTEGER NOT NULL DEFAULT 0,       -- 当日赚分王；0 = 无人入账
-  earned     INTEGER NOT NULL DEFAULT 0,       -- 当日入账总量，单位 1/10000 fc
+  earned     INTEGER NOT NULL DEFAULT 0,       -- 当日入账总量，单位 1/10000 XD
   applied_at TEXT    NOT NULL DEFAULT (datetime('now','+8 hours'))
 );
 

@@ -260,7 +260,7 @@
           setAmt(num, o.price);
           var unit = document.createElement('i');
           unit.setAttribute('data-cur', 'code');
-          unit.textContent = 'XB';
+          unit.textContent = 'XD';
           amount.appendChild(num);
           amount.appendChild(unit);
           tr.appendChild(amount);

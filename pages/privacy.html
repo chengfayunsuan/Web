@@ -113,7 +113,7 @@
           <tr><td>处理者</td><td>受控制者委托、仅按指示处理数据的一方，例如本站使用的云服务商。</td></tr>
           <tr><td>问卷商 / Survey Partner</td><td>提供并运营问卷的第三方调研机构。</td></tr>
           <tr><td>数据主体</td><td>数据所指向的那个人，也就是你。</td></tr>
-          <tr><td>XB / XD</td><td>本站的两种计价单位。XB 是站内记账单位，锚定人民币；XD 是面向用户的展示单位，100 XD = 1 美元。两者只是显示方式不同，不影响你的实际权益。</td></tr>
+          <tr><td>XD</td><td>本站唯一的计价单位，100 XD = 1 美元。站内记账、余额、明细、提现、问卷报价与商品标价都用它。</td></tr>
         </tbody>
       </table>
     </div>
@@ -411,8 +411,6 @@
         </thead>
         <tbody>
           <tr><td><code>cf_session</code></td><td>必需</td><td>登录凭证，HttpOnly，脚本不可读</td><td>30 天，退出即失效</td></tr>
-          <tr><td><code>cf-currency</code></td><td>偏好</td><td>你选择的计价币种（XB / XD）</td><td>1 年</td></tr>
-          <tr><td><code>cf-cur-style</code></td><td>偏好</td><td>金额的单位写法</td><td>1 年</td></tr>
           <tr><td><code>cf-fx</code></td><td>缓存</td><td>汇率缓存，避免每次刷新都请求</td><td>短期</td></tr>
           <tr><td><code>cf-me</code></td><td>缓存</td><td>当前标签页内的账户摘要</td><td>关闭标签页即清除</td></tr>
           <tr><td><code>cf_clearance</code></td><td>安全</td><td>Cloudflare Turnstile 的人机校验结果</td><td>由 Cloudflare 设定</td></tr>

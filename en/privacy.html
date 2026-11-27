@@ -117,7 +117,7 @@
           <tr><td>Processor</td><td>A party that processes data on the controller's instructions only, such as our cloud providers.</td></tr>
           <tr><td>Survey Partner</td><td>A third-party research company that provides and runs surveys.</td></tr>
           <tr><td>Data subject</td><td>The individual the data relates to — that is, you.</td></tr>
-          <tr><td>XB / XD</td><td>The two units used on this Site. XB is the internal accounting unit, pegged to CNY. XD is the display unit shown to users, where 100 XD = 1 USD. The unit shown does not change what you are owed.</td></tr>
+          <tr><td>XD</td><td>The only unit used on this Site, where 100 XD = 1 USD. It covers accounting, balance, ledger, withdrawals, survey quotes and item prices.</td></tr>
         </tbody>
       </table>
     </div>
@@ -443,8 +443,6 @@
         </thead>
         <tbody>
           <tr><td><code>cf_session</code></td><td>Essential</td><td>Sign-in credential, HttpOnly, unreadable by scripts</td><td>30 days, revoked on sign-out</td></tr>
-          <tr><td><code>cf-currency</code></td><td>Preference</td><td>Your chosen display unit (XB / XD)</td><td>1 year</td></tr>
-          <tr><td><code>cf-cur-style</code></td><td>Preference</td><td>Amount formatting</td><td>1 year</td></tr>
           <tr><td><code>cf-fx</code></td><td>Cache</td><td>Exchange-rate cache, avoids a request on every load</td><td>Short</td></tr>
           <tr><td><code>cf-me</code></td><td>Cache</td><td>Account summary for the current tab</td><td>Until tab closes</td></tr>
           <tr><td><code>cf_clearance</code></td><td>Security</td><td>Cloudflare Turnstile verification result</td><td>Set by Cloudflare</td></tr>

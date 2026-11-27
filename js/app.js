@@ -240,12 +240,11 @@
     var pay = document.createElement('div');
     pay.className = 'svc__pay';
     var num = document.createElement('b');
-    /* 问卷报价是展示用的估值（汇率会动、入账按回调实数），截到 2 位小数。
-       别的金额（余额、流水）仍走 4 位账目精度，不受影响。 */
-    setAmt(num, s.price, 2);
+    /* 问卷报价已是 XD，全站金额统一 1 位小数 */
+    setAmt(num, s.price, 1);
     var unit = document.createElement('i');
     unit.setAttribute('data-cur', 'code');
-    unit.textContent = 'XB';
+    unit.textContent = 'XD';
     pay.appendChild(num);
     pay.appendChild(unit);
 
@@ -801,12 +800,10 @@
     return STORE_ERR[code] || ('操作失败：' + (code || T('未知错误','Unknown error')));
   }
 
-  /* 弹层文案里的金额：按当前显示币种换算并带单位，避免说「扣 20」而界面是 XD */
+  /* 弹层文案里的金额：全站都是 XD，直接显示并带单位 */
   function curText(v) {
-    if (!window.CF || !CF.money) return trimNum(String(v));
-    /* 弹层里的金额跟卡片同口径：XD 取整，XB 两位 */
-    var isUsd = CF.currency && CF.currency.mode === 'USD';
-    return CF.money(v, isUsd ? 0 : 1) + ' ' + CF.currency.code;
+    if (!window.CF || !CF.money) return trimNum(String(v)) + ' XD';
+    return CF.money(v, 1) + ' ' + CF.currency.code;
   }
 
   function copyText(text) {
@@ -897,15 +894,11 @@
       p.className = 'st-item__p';
 
       var b = document.createElement('b');
-      /* 兑换价：库里存的是 XB 基准。
-         XB 模式本来就是整数或两位，照旧两位显示；
-         XD 模式取整 —— 这些商品按整数乘法刀定价（800 / 480 / 748 / 374），
-         汇率一动就抖成 800.38 这种尾巴，看着像乱收费。 */
-      var isUsd = window.CF && CF.currency && CF.currency.mode === 'USD';
-      setAmt(b, it.price, isUsd ? 0 : 1);
+      /* 兑换价已是 XD，直接 1 位小数展示 */
+      setAmt(b, it.price, 1);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
-      u.textContent = 'XB';
+      u.textContent = 'XD';
       p.appendChild(b);
       p.appendChild(u);
 
@@ -1006,18 +999,10 @@
     /* ---------- 提现 ---------- */
 
     function openWithdraw() {
-      /* 输入框跟着当前显示币种走，提交前再换回 XB；否则显示 XD 时输入「10」实际扣的是 10 XB */
-      var usd = !!(window.CF && CF.currency && CF.currency.mode === 'USD');
-      var unit = window.CF ? CF.currency.code : 'XB';
-      var MIN_XB = 50;
-      /* XD 模式下 50 元约合 748，向上留到 0.1，免得取整后反而不够门槛 */
-      var minShow = usd ? String(Math.ceil(Number(CF.money(MIN_XB)) * 10) / 10) : '50';
-
-      /* 填的是当前币种，后端只认 XB：统一过 CF.toBase（XD 是 100 一美元，不能直接乘汇率） */
-      function toCfb(v) {
-        if (window.CF && CF.toBase) return CF.toBase(v);
-        return usd ? v / 100 * CF.rate : v;
-      }
+      /* 全站只有 XD：输入框填的就是 XD，直接提交，后端按 XD 记账 */
+      var unit = window.CF ? CF.currency.code : 'XD';
+      var MIN_XD = 800;
+      var minShow = String(MIN_XD);
 
       CF.modal({
         kicker: 'WITHDRAW',
@@ -1047,8 +1032,8 @@
         onSubmit: function (v, api) {
           api.setError('');
           var typed = Number(v.amount);
-          var amount = Math.round(toCfb(typed) * 10000) / 10000;
-          if (!isFinite(typed) || amount < MIN_XB) {
+          var amount = Math.round(typed * 10000) / 10000;
+          if (!isFinite(typed) || amount < MIN_XD) {
             api.setError(T('起提金额为 ' + minShow + ' ' + unit + '，请填写不低于该数值的金额。',
               'Minimum withdrawal is ' + minShow + ' ' + unit + '.'));
             return;
@@ -1176,7 +1161,7 @@
       setAmt(pb, o.price);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
-      u.textContent = 'XB';
+      u.textContent = 'XD';
       p.appendChild(pb);
       p.appendChild(u);
       row.appendChild(p);
@@ -1220,7 +1205,7 @@
       setAmt(pb, w.amount);
       var u = document.createElement('i');
       u.setAttribute('data-cur', 'code');
-      u.textContent = 'XB';
+      u.textContent = 'XD';
       p.appendChild(pb);
       p.appendChild(u);
       row.appendChild(p);
@@ -1380,7 +1365,7 @@
         d.appendChild(dv);
         var du = document.createElement('i');
         du.setAttribute('data-cur', 'code');
-        du.textContent = 'FC';
+        du.textContent = 'XD';
         d.appendChild(du);
 
         var b = document.createElement('span');
@@ -1390,7 +1375,7 @@
         b.appendChild(bb);
         var bu = document.createElement('i');
         bu.setAttribute('data-cur', 'code');
-        bu.textContent = 'FC';
+        bu.textContent = 'XD';
         b.appendChild(bu);
 
         row.appendChild(at);
@@ -1526,7 +1511,7 @@
         fc.appendChild(fcn);
         var fcu = document.createElement('i');
         fcu.setAttribute('data-cur', 'code');
-        fcu.textContent = 'XB';
+        fcu.textContent = 'XD';
         fc.appendChild(fcu);
 
         row.appendChild(rk);
