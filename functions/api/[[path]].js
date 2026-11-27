@@ -5310,10 +5310,21 @@ async function adminOverview(env) {
        FROM withdrawals WHERE status = 'pending'`
   ).first();
 
+  /* 后台的「最近流水」要的是完整账目：只把测试性质的记录剔掉
+     （模拟/实验卷、demo- 与 selftest 单、cf 开头的自造 TR 单），
+     其余全留 —— 包括被筛除时给的那笔加分（筛选补偿），那是真实发生的钱。
+     和首页展览不同：展览要好看，后台要可对账。 */
   const recent = await env.DB.prepare(
     `SELECT l.delta, l.kind, l.memo, l.created_at, u.username, u.id AS uid
-       FROM fc_ledger l LEFT JOIN users u ON u.id = l.uid
-      ORDER BY l.id DESC LIMIT 12`
+       FROM fc_ledger l
+       LEFT JOIN users u ON u.id = l.uid
+       LEFT JOIN mo_task m ON m.transaction_id = l.ref AND m.uid = l.uid
+      WHERE l.memo NOT LIKE '%模拟%'
+        AND l.memo NOT LIKE '%实验%'
+        AND COALESCE(m.transaction_id, '') NOT LIKE 'demo%'
+        AND COALESCE(m.transaction_id, '') NOT LIKE '%selftest%'
+        AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
+      ORDER BY l.id DESC LIMIT 50`
   ).all();
 
   return json({
