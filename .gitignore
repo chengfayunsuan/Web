@@ -25,3 +25,6 @@ preview-server.js
 
 # 本地截图产物
 .shot-*.png
+
+# 管理端子站（独立 Pages 项目 chengfa-admin），不属于主站，不进主站仓库
+.Admin/
