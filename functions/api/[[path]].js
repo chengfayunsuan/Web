@@ -2134,8 +2134,15 @@ async function cpxPostback(request, env, url) {
 
   /* 金额口径：amount_local 已经是「用户应得的 XD」——
      主卷按 factor=69 算、bonus 按 factor=100 算，CPX 都算好了。
-     直接按 XD 记账，绝不能用 usd 反推，否则 bonus 那部分会少给 31%。 */
-  const units = Math.round(Math.abs(local) * FC_SCALE);
+     直接按 XD 记账，绝不能用 usd 反推，否则 bonus 那部分会少给 31%。
+     唯一例外是筛除补偿：CPX 的筛除回调实测不带 type（hook_log 里 type=?，
+     local=1、usd=0.01），面板对筛除用的是 100 的 factor —— 我们按 69 压回来，
+     每条 $0.01 只给 0.69 XD，不照单全收多付 31%。 */
+  const isScreenout = (type === 'out' || type === 'return' || type === 'screenout')
+    || (!type && usd > 0 && usd <= 0.05);
+  const units = isScreenout
+    ? Math.round(usd * 69 * FC_SCALE)
+    : Math.round(Math.abs(local) * FC_SCALE);
   if (units <= 0) return mtxText('OK', 200);
 
   const isRev = status === 2;
@@ -2152,8 +2159,7 @@ async function cpxPostback(request, env, url) {
       eventId: String(p.offer_id || clickIp),
       offerId: String(p.offer_id || ''),
       offerName: type === 'bonus' ? '完成评分奖励'
-        : (type === 'out' || type === 'return' || type === 'screenout')
-          ? '筛选补偿' : '问卷',
+        : isScreenout ? '筛选补偿' : '问卷',
       payout: String(usd || ''),
       currency: 'USD',
       ip: clickIp || ip
@@ -3176,6 +3182,7 @@ async function feedRecent(request, env) {
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
+        AND l.memo NOT LIKE '%筛选补偿%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
       ORDER BY l.id DESC
       LIMIT 50`
@@ -3185,6 +3192,7 @@ async function feedRecent(request, env) {
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
+        AND l.memo NOT LIKE '%筛选补偿%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
       ORDER BY l.id DESC
       LIMIT 50`

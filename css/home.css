@@ -523,56 +523,59 @@
 
 .exh__count b { font-size: 20px; color: var(--ink); letter-spacing: 0; }
 
-.exh__list {
+.exh__grid {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.exh__i {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px;
-  padding: 12px 2px;
-  border-bottom: 1px solid var(--hair);
-  font-size: 14px;
-  line-height: 1.5;
 }
 
-.exh__when {
-  flex-shrink: 0;
-  width: 92px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: #8A8577;
+.exh__c {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px 15px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .exh__who {
-  flex-shrink: 0;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-weight: 700;
-}
-
-.exh__what {
-  flex: 1;
-  min-width: 0;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #4A453A;
 }
 
 .exh__amt {
-  flex-shrink: 0;
   font-family: var(--mono);
   font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -.02em;
 }
 
 .exh__amt--up { color: var(--red); }
 .exh__amt--dn { color: #4A453A; }
+
+.exh__src {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  color: var(--red-deep);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exh__when {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #8A8577;
+}
 
 .exh__empty {
   margin: 0;
@@ -836,10 +839,10 @@
   .prog__note { flex-direction: column; align-items: flex-start; gap: 12px; }
 
   .exh { margin-top: 24px; }
-  .exh__i { gap: 10px; font-size: 13px; }
-  .exh__when { width: 76px; font-size: 11px; }
-  .exh__who { max-width: 34%; }
-  .exh__amt { font-size: 13px; }
+  .exh__grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+  .exh__c { padding: 10px 12px; gap: 5px; }
+  .exh__who { font-size: 13px; }
+  .exh__amt { font-size: 16px; }
 
 }
 

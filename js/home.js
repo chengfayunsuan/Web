@@ -363,30 +363,31 @@
         list.textContent = '';
         items.forEach(function (it) {
           var li = document.createElement('li');
-          li.className = 'exh__i';
-
-          var when = document.createElement('span');
-          when.className = 'exh__when';
-          when.textContent = ago(it.at);
-          li.appendChild(when);
+          li.className = 'exh__c';
 
           var who = document.createElement('span');
           who.className = 'exh__who';
           who.textContent = it.name;
           li.appendChild(who);
 
-          var what = document.createElement('span');
-          what.className = 'exh__what';
-          var src = SRC[it.kind];
-          what.textContent = it.up
-            ? T('完成问卷 · ' + (src ? src.zh : ''), 'Survey done · ' + (src ? src.en : ''))
-            : T('入账冲回 · ' + (src ? src.zh : ''), 'Reversed · ' + (src ? src.en : ''));
-          li.appendChild(what);
-
           var amt = document.createElement('span');
           amt.className = 'exh__amt ' + (it.up ? 'exh__amt--up' : 'exh__amt--dn');
           amt.textContent = (it.up ? '+' : '-') + trimNum(it.xd) + ' XD';
           li.appendChild(amt);
+
+          var src = SRC[it.kind];
+          var srcName = src ? (IS_EN ? src.en : src.zh) : '';
+          var srcEl = document.createElement('span');
+          srcEl.className = 'exh__src';
+          srcEl.textContent = it.up
+            ? srcName
+            : T(srcName + ' · 冲回', srcName + ' · reversed');
+          li.appendChild(srcEl);
+
+          var when = document.createElement('span');
+          when.className = 'exh__when';
+          when.textContent = ago(it.at);
+          li.appendChild(when);
 
           list.appendChild(li);
         });
