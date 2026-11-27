@@ -562,12 +562,12 @@
       });
     }
 
-    /* 排序按钮：四个字段，每个都是三态循环
-         未选 → 首选方向 → 反方向 → 未选
+    /* 排序按钮：四个字段，两态切换
+       点当前字段是切换方向，点别的字段是换字段并回到它的首选方向。
        时间要反过来：第一下是「短的在前」。
-       同一时刻只有一个字段生效，选中别的会把旧的清掉。 */
-    var sortDir = { fc: 0, time: 0, star: 0, inc: 0 };
-    var sortKey = '';
+       默认按通过率从高到低排；同一时刻只有一个字段生效。 */
+    var sortDir = { fc: 0, time: 0, star: 0, inc: 1 };
+    var sortKey = 'inc';
 
     function fieldVal(s, key) {
       if (key === 'fc') return Number(s.price) || 0;
@@ -602,15 +602,13 @@
     function paint() {
       var src = visibleItems();
       var sorted = src.slice();
-      var d = sortKey ? (sortDir[sortKey] || 0) : 0;
+      var d = sortDir[sortKey] || 1;
 
-      /* 三个都未选时保持上游给的顺序（官方推荐序），不做任何排 */
-      if (d !== 0) {
-        sorted.sort(function (a, b) {
-          return cmpField(a, b, sortKey, d) ||
-            ((Number(b.price) || 0) - (Number(a.price) || 0));
-        });
-      }
+      /* 没有「不排序」状态，永远按当前字段排；同值时按报价从高到低兜底 */
+      sorted.sort(function (a, b) {
+        return cmpField(a, b, sortKey, d) ||
+          ((Number(b.price) || 0) - (Number(a.price) || 0));
+      });
 
       list.innerHTML = '';
       sorted.forEach(function (s) { list.appendChild(cardEl(s, false)); });
@@ -635,14 +633,15 @@
       tab.addEventListener('click', function () {
         var key = tab.getAttribute('data-sort');
         var first = tab.getAttribute('data-first') === 'asc' ? -1 : 1;
-        var d = sortDir[key] || 0;
 
-        /* 0 → first → -first → 0 */
-        var next = d === 0 ? first : (d === first ? -first : 0);
-
-        Object.keys(sortDir).forEach(function (k) { sortDir[k] = 0; });
-        sortDir[key] = next;
-        sortKey = next === 0 ? '' : key;
+        if (key === sortKey) {
+          /* 同一个字段：降序 ↔ 升序 */
+          sortDir[key] = -sortDir[key];
+        } else {
+          Object.keys(sortDir).forEach(function (k) { sortDir[k] = 0; });
+          sortDir[key] = first;
+          sortKey = key;
+        }
 
         paintTabs();
         paint();
@@ -758,6 +757,8 @@
         loadStation();
       });
     }
+    /* 默认就是「通过率 ↓」，进页面先点亮按钮，等数据回来再排 */
+    paintTabs();
     loadAll();
 
     /* 问卷墙是在新标签页里打开的。答完切回来，这一页还停在跳走前的余额和库存上，
