@@ -272,17 +272,18 @@
   align-items: end;
   gap: 20px 32px;
   margin-top: 24px;
-  padding: 22px clamp(18px, 2.6vw, 30px);
-  border: var(--edge);
-  background: var(--ink);
-  color: var(--paper);
+  padding: 22px 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  background: transparent;
+  color: var(--ink);
 }
 
 .st-wallet__k {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .2em;
-  color: #B8B0A0;
+  color: var(--gray);
 }
 
 .st-wallet__n {
@@ -304,7 +305,7 @@
   font-style: normal;
   font-size: 11px;
   letter-spacing: .16em;
-  color: #B8B0A0;
+  color: var(--gray);
 }
 
 .st-wallet__n--sm b { font-size: clamp(26px, 3vw, 36px); }
@@ -314,7 +315,7 @@
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .08em;
-  color: #B8B0A0;
+  color: var(--gray);
 }
 
 .st-wallet__a {
@@ -330,8 +331,8 @@
 }
 
 .st-wallet__a .btn--ghost {
-  border-color: var(--paper);
-  color: var(--paper);
+  border-color: var(--ink);
+  color: var(--ink);
   background: transparent;
 }
 
