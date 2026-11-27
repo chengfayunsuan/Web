@@ -69,6 +69,7 @@ export async function onRequest(context) {
     if (path === 'cdk/redeem' && request.method === 'POST') return await cdkRedeem(request, env);
     if (path === 'messages' && request.method === 'GET') return await messageList(request, env);
     if (path === 'announcements' && request.method === 'GET') return await noticeList(env);
+    if (path === 'feed/recent' && request.method === 'GET') return await feedRecent(request, env);
     if (path === 'messages/read' && request.method === 'POST') return await messageRead(request, env);
     if (path === 'moonetix/link' && request.method === 'GET') return await mtxLink(request, env);
     if (path === 'moonetix/tasks' && request.method === 'GET') return await mtxTasks(request, env);
@@ -3151,6 +3152,57 @@ async function fxRate(env) {
 }
 
 /* 只要数字版汇率，给内部结算用（要一份 Response 再 clone 出来，省得把上面那段抄第二遍） */
+/* ---------------- 首页实时入账 ----------------
+ * 公开接口，不要求登录：首页那块「最近入账」全靠它。
+ *
+ * 口径：
+ *   - 只统计问卷墙的盈亏（五家上游的 reward 与 reverse）。
+ *     提现、兑换、人工调账、CDK 都不算，那不是「答题赚到的」。
+ *   - 被筛掉（survey_reject）本来就没有入账，自然不出现 —— 这就是「被踢出的不算」。
+ *   - 只有完成才有 reward 流水，所以「只有完成了才算」是流水本身保证的。
+ *   - 事后冲正（*_reverse）是实实在在的亏损，照样上墙，delta 为负。
+ *   - 封禁用户与已注销用户不上墙。
+ */
+const FEED_KINDS = [
+  'cpx_reward', 'theoremreach_reward', 'opinionuniverse_reward',
+  'moonetix_reward', 'survey_reward',
+  'cpx_reverse', 'theoremreach_reverse', 'opinionuniverse_reverse', 'moonetix_reverse'
+];
+
+async function feedRecent(request, env) {
+  const r = await env.DB.prepare(
+    `SELECT l.delta AS d, l.created_at AS t, u.username AS n
+       FROM fc_ledger l JOIN users u ON u.id = l.uid
+      WHERE l.uid > 0
+        AND u.deleted_at IS NULL
+        AND u.status <> 'banned'
+        AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
+      ORDER BY l.id DESC
+      LIMIT 50`
+  ).bind.apply(env.DB.prepare(
+    `SELECT l.delta AS d, l.created_at AS t, u.username AS n
+       FROM fc_ledger l JOIN users u ON u.id = l.uid
+      WHERE l.uid > 0
+        AND u.deleted_at IS NULL
+        AND u.status <> 'banned'
+        AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
+      ORDER BY l.id DESC
+      LIMIT 50`
+  ), FEED_KINDS).all();
+
+  const items = (r.results || []).map(function (x) {
+    const xd = Number(x.d) / FC_SCALE;
+    return {
+      name: String(x.n || '').trim().slice(0, 24) || '匿名',
+      xd: Math.round(xd * 10) / 10,
+      up: xd > 0,
+      at: toIso(String(x.t || ''))
+    };
+  });
+
+  return json({ ok: true, items: items });
+}
+
 async function fxValue(env) {
   try {
     const res = await fxRate(env);
