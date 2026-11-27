@@ -318,7 +318,7 @@ async function logout(request, env) {
    每级固定 100 分，线性结算：第 n 级区间 [(n-1)*100, n*100)。
    所以 LV1 = 0～99，LV0 = -100～-1，LV-1 = -200～-100，允许负等级。
    前端 home.js / space.js 的 levelRange 与这里必须一致。 */
-function levelOf(exp) {
+function levelOfLegacy(exp) {
   return Math.floor((Number(exp) || 0) / 100) + 1;
 }
 
@@ -326,7 +326,21 @@ function levelOf(exp) {
    delta 只传内部常量（1 / 3 / -8），不接用户输入。 */
 function lvSql(delta) {
   const d = Number(delta) || 0;
-  return `exp = exp + (${d}), level = CAST(FLOOR((exp + (${d})) / 100.0) AS INTEGER) + 1`;
+  const x = `(exp + (${d}))`;
+  return `exp = exp + (${d}), level = CASE` +
+    ` WHEN ${x} < 0 THEN -CAST(FLOOR((0.0 - ${x}) / 5) AS INTEGER)` +
+    ` WHEN ${x} < 25 THEN 1 + CAST(FLOOR(${x} / 5.0) AS INTEGER)` +
+    ` WHEN ${x} < 75 THEN 6 + CAST(FLOOR((${x} - 25) / 10.0) AS INTEGER)` +
+    ` WHEN ${x} < 275 THEN 11 + CAST(FLOOR((${x} - 75) / 20.0) AS INTEGER)` +
+    ` WHEN ${x} < 575 THEN 21 + CAST(FLOOR((${x} - 275) / 30.0) AS INTEGER)` +
+    ` WHEN ${x} < 975 THEN 31 + CAST(FLOOR((${x} - 575) / 40.0) AS INTEGER)` +
+    ` WHEN ${x} < 1475 THEN 41 + CAST(FLOOR((${x} - 975) / 50.0) AS INTEGER)` +
+    ` WHEN ${x} < 2075 THEN 51 + CAST(FLOOR((${x} - 1475) / 60.0) AS INTEGER)` +
+    ` WHEN ${x} < 2775 THEN 61 + CAST(FLOOR((${x} - 2075) / 70.0) AS INTEGER)` +
+    ` WHEN ${x} < 3575 THEN 71 + CAST(FLOOR((${x} - 2775) / 80.0) AS INTEGER)` +
+    ` WHEN ${x} < 4475 THEN 81 + CAST(FLOOR((${x} - 3575) / 90.0) AS INTEGER)` +
+    ` WHEN ${x} < 5375 THEN 91 + CAST(FLOOR((${x} - 4475) / 100.0) AS INTEGER)` +
+    ` ELSE 100 END`;
 }
 
 /* ---------------- 好感度每日结算 ----------------
@@ -3255,6 +3269,37 @@ async function feedRecent(request, env) {
   });
 
   return json({ ok: true, items: items });
+}
+
+/* 等级阶梯（2026-11-27 主人定）：5 级及以下（含 0 与负级）每级 5 分；
+   6–10 每级 10，11–20 每级 20，21–30 每级 30，31–40 每级 40 ……
+   91–100 每级 100，100 级封顶（成神）。
+   前端 home.js / space.js 的 levelRange 必须与这里一致，改一处就得改三处。 */
+const LEVEL_BANDS = [
+  { lv: 1, exp: 0, step: 5 },
+  { lv: 6, exp: 25, step: 10 },
+  { lv: 11, exp: 75, step: 20 },
+  { lv: 21, exp: 275, step: 30 },
+  { lv: 31, exp: 575, step: 40 },
+  { lv: 41, exp: 975, step: 50 },
+  { lv: 51, exp: 1475, step: 60 },
+  { lv: 61, exp: 2075, step: 70 },
+  { lv: 71, exp: 2775, step: 80 },
+  { lv: 81, exp: 3575, step: 90 },
+  { lv: 91, exp: 4475, step: 100 }
+];
+const LEVEL_MAX = 100;
+
+function levelOf(exp) {
+  const e = Number(exp) || 0;
+  if (e < 0) return -Math.floor(-e / 5);
+  for (let i = LEVEL_BANDS.length - 1; i >= 0; i--) {
+    const b = LEVEL_BANDS[i];
+    if (e >= b.exp) {
+      return Math.min(LEVEL_MAX, b.lv + Math.floor((e - b.exp) / b.step));
+    }
+  }
+  return 1;
 }
 
 async function fxValue(env) {

@@ -177,13 +177,42 @@
     return n < 1 ? 1 : n;
   }
 
-  /* 等级区间：每级 100 分，第 n 级 [(n-1)*100, n*100)
-     LV1 = 0～99、LV0 = -100～-1、LV-1 = -200～-100，负等级一样有进度条 */
+  /* 等级阶梯（与后端 levelOf 一致，2026-11-27 主人定）：
+     5 级及以下（含 0 与负级）每级 5 分；6–10 每级 10；11–20 每级 20；
+     21–30 每级 30 …… 91–100 每级 100；100 级封顶。 */
+  var LEVEL_BANDS = [
+    { lv: 1, exp: 0, step: 5 },
+    { lv: 6, exp: 25, step: 10 },
+    { lv: 11, exp: 75, step: 20 },
+    { lv: 21, exp: 275, step: 30 },
+    { lv: 31, exp: 575, step: 40 },
+    { lv: 41, exp: 975, step: 50 },
+    { lv: 51, exp: 1475, step: 60 },
+    { lv: 61, exp: 2075, step: 70 },
+    { lv: 71, exp: 2775, step: 80 },
+    { lv: 81, exp: 3575, step: 90 },
+    { lv: 91, exp: 4475, step: 100 }
+  ];
+  var LEVEL_MAX = 100;
+  var LEVEL_MAX_EXP = 5375;
+
   function levelRange(level) {
-    var lv = level | 0;
-    var from = (lv - 1) * 100;
-    return { from: from, to: from + 100 };
+    var lv = Number(level) || 0;
+    if (lv > LEVEL_MAX) lv = LEVEL_MAX;
+    if (lv <= 1) {
+      var f = (lv - 1) * 5;
+      return { from: f, to: f + 5 };
+    }
+    for (var i = LEVEL_BANDS.length - 1; i >= 0; i--) {
+      var b = LEVEL_BANDS[i];
+      if (lv >= b.lv) {
+        var from = b.exp + (lv - b.lv) * b.step;
+        return { from: from, to: Math.min(LEVEL_MAX_EXP, from + b.step) };
+      }
+    }
+    return { from: 0, to: 5 };
   }
+
 
   /* ---------- 渲染 ---------- */
 

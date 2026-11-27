@@ -5,6 +5,42 @@
    ============================================================ */
 (function () {
   'use strict';
+  /* 等级阶梯（与后端 levelOf 一致，2026-11-27 主人定）：
+     5 级及以下（含 0 与负级）每级 5 分；6–10 每级 10；11–20 每级 20；
+     21–30 每级 30 …… 91–100 每级 100；100 级封顶。 */
+  var LEVEL_BANDS = [
+    { lv: 1, exp: 0, step: 5 },
+    { lv: 6, exp: 25, step: 10 },
+    { lv: 11, exp: 75, step: 20 },
+    { lv: 21, exp: 275, step: 30 },
+    { lv: 31, exp: 575, step: 40 },
+    { lv: 41, exp: 975, step: 50 },
+    { lv: 51, exp: 1475, step: 60 },
+    { lv: 61, exp: 2075, step: 70 },
+    { lv: 71, exp: 2775, step: 80 },
+    { lv: 81, exp: 3575, step: 90 },
+    { lv: 91, exp: 4475, step: 100 }
+  ];
+  var LEVEL_MAX = 100;
+  var LEVEL_MAX_EXP = 5375;
+
+  function levelRange(level) {
+    var lv = Number(level) || 0;
+    if (lv > LEVEL_MAX) lv = LEVEL_MAX;
+    if (lv <= 1) {
+      var f = (lv - 1) * 5;
+      return { from: f, to: f + 5 };
+    }
+    for (var i = LEVEL_BANDS.length - 1; i >= 0; i--) {
+      var b = LEVEL_BANDS[i];
+      if (lv >= b.lv) {
+        var from = b.exp + (lv - b.lv) * b.step;
+        return { from: from, to: Math.min(LEVEL_MAX_EXP, from + b.step) };
+      }
+    }
+    return { from: 0, to: 5 };
+  }
+
 
   /* /en 与中文页共用这一份脚本，页面文字都过 T() */
   var IS_EN = /^\/en(\/|$)/.test(location.pathname);
@@ -517,13 +553,14 @@
       T('注册于 ' + (u.joinedMonth || '未记录') + ' · 已加入 ' + (u.joinedDays || 1) + ' 天',
         'Joined ' + (u.joinedMonth || 'unknown') + ' · ' + (u.joinedDays || 1) + ' days');
 
-    /* 经验：每级 100 分，第 n 级区间 [(n-1)*100, n*100)
-       LV0 是 -100～-1，LV-1 是 -200～-100，负等级同样有进度条 */
+    /* 经验区间走统一阶梯（与后端 levelOf 一致），负等级同样有进度条 */
     var lv = u.level == null ? 1 : Number(u.level);
     var exp = u.exp || 0;
-    var start = (lv - 1) * 100;
-    var next = lv * 100;
-    var pct = ((exp - start) / 100) * 100;
+    var range = levelRange(lv);
+    var start = range.from;
+    var next = range.to;
+    var span = next - start;
+    var pct = span > 0 ? ((exp - start) / span) * 100 : 100;
     pct = Math.max(0, Math.min(100, pct));
 
     /* 余额是这块的主数字，位数多了要缩字号，免得撑破格子。
