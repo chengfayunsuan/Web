@@ -55,6 +55,7 @@ export async function onRequest(context) {
     if (path === 'fx' && request.method === 'GET') return await fxRate(env);
     if (path === 'surveys' && request.method === 'GET') return await surveyList(request, env);
     if (path === 'surveys/tr' && request.method === 'GET') return await trSurveyList(request, env);
+    if (path === 'surveys/cpx' && request.method === 'GET') return await cpxSurveyList(request, env);
     if (path === 'surveys/join' && request.method === 'POST') return await surveyJoin(request, env);
     if (path === 'surveys/paper' && request.method === 'GET') return await surveyPaper(request, env, url);
     if (path === 'surveys/submit' && request.method === 'POST') return await surveySubmit(request, env);
@@ -2166,6 +2167,119 @@ async function cpxPostback(request, env, url) {
     'type=' + type, JSON.stringify(res));
   if (!res.ok && res.error === 'no_user') return mtxText('OK', 200);
   return mtxText('OK', 200);
+}
+
+/* ---------------- CPX 问卷列表 ----------------
+ * GET /api/surveys/cpx，和 /api/surveys/tr 同构，前端直接并进大厅。
+ * 三条铁律（见 docs/CPX-INTERFACE.md）：
+ *   1. href 是 user-based 的，只对当次 ext_user_id 有效 —— 不缓存、不跨用户复用
+ *   2. 拉列表签名是 md5(uid + '-' + secret)，和回调的 md5(trans_id + '-' + secret) 不是一套
+ *   3. payout 已是分成后的 XD，只做 XD→XB 换算，不要再乘 share；
+ *      任何失败都回 ok:true + 空列表，绝不 5xx（前端靠空列表退回站内问卷）
+ */
+async function cpxSurveyList(request, env) {
+  const session = await currentSession(request, env);
+  if (!session) return json({ ok: false, error: 'unauthorized' }, 401);
+  if (!isActive(session)) return locked();
+  if (await wallBlocked(env, session.uid)) return json({ ok: false, error: 'email_unverified' }, 403);
+
+  const c = cpxConf(env);
+  if (!c.appId || !c.secret) return json({ ok: true, items: [], note: 'not_configured' });
+
+  const uid = String(session.uid);
+  /* ip_user 必填：CPX 靠它判国家、匹库存。Cloudflare 上只认 CF-Connecting-IP */
+  const ip = String(request.headers.get('CF-Connecting-IP') || '').trim();
+  if (!ip) return json({ ok: false, error: 'no_ip' }, 400);
+
+  const ua = String(request.headers.get('User-Agent') || '').trim();
+  const cc = String(
+    (request.cf && request.cf.country) || request.headers.get('CF-IPCountry') || ''
+  ).toUpperCase();
+
+  const qs = [
+    'app_id=' + encodeURIComponent(c.appId),
+    'ext_user_id=' + encodeURIComponent(uid),
+    'output_method=api',
+    'ip_user=' + encodeURIComponent(ip),
+    'limit=30',
+    'secure_hash=' + md5Hex(uid + '-' + c.secret)
+  ];
+  /* 文档标 Optional，但设备适配靠它，有就带上 */
+  if (ua) qs.push('user_agent=' + encodeURIComponent(ua));
+
+  const empty = function (note) { return json({ ok: true, items: [], note: note }); };
+
+  let payload = null;
+  try {
+    /* 上游慢就放弃，让大厅退回站内问卷，比挂着转圈强 */
+    const ac = new AbortController();
+    const timer = setTimeout(function () { ac.abort(); }, 3000);
+    try {
+      const r = await fetch('https://live-api.cpx-research.com/api/get-surveys.php?' + qs.join('&'), {
+        headers: { Accept: 'application/json' },
+        signal: ac.signal
+      });
+      const text = await r.text();
+      if (!r.ok) {
+        console.error('cpx surveys upstream:', r.status, text.slice(0, 160));
+        return empty('upstream_error');
+      }
+      try {
+        payload = JSON.parse(text);
+      } catch (e) {
+        console.error('cpx surveys bad json:', text.slice(0, 160));
+        return empty('upstream_error');
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (e) {
+    console.error('cpx surveys fetch failed:', String((e && e.message) || e).slice(0, 160));
+    return empty('upstream_error');
+  }
+
+  if (!payload || payload.status !== 'success') {
+    console.error('cpx surveys status:', payload && payload.status);
+    return empty('upstream_error');
+  }
+
+  const fx = await fxValue(env);
+  const list = Array.isArray(payload.surveys) ? payload.surveys : [];
+  const items = [];
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i] || {};
+    const sid = String(s.id || '').trim();
+    /* href 原样透传，不改一个字符（上游已签好）；href_new 只作兜底 */
+    const entry = String(s.href || s.href_new || '').trim();
+    const xd = Number(s.payout) || 0;
+    if (!sid || !entry || xd <= 0) continue;
+
+    const loi = Math.round(Number(s.loi) || 0);
+    const inc = Math.round(Number(s.conversion_rate) || 0);
+    items.push({
+      id: 'cpx-' + sid,
+      provider: 'CPX Research',
+      title: '问卷 #' + sid,
+      topic: loi <= 5 ? '快速' : (loi <= 12 ? '常规' : '深度'),
+      /* payout 是 CPX 面板 Currency Factor 算好的 XD（回调入账同一口径），
+         这里只做 XD→XB，再乘一次 share 就等于抽两遍，用户少拿 31% */
+      price: formatFc(Math.round(Math.abs(xd) / XD_PER_USD * fx * FC_SCALE)),
+      durationMin: loi,
+      stars: Math.round(Number(s.statistics_rating_avg) || 0),
+      /* CPX 没有 incidence 字段，用 conversion_rate（百分比）顶上，前端发生率排序要用 */
+      incidence: inc,
+      grade: '',
+      requirement: inc > 0 ? '通过率 ' + inc + '%' : 'CPX 问卷',
+      entry: entry,
+      featured: Number(s.top) === 1,
+      createdAt: String(99999999 - i)
+    });
+  }
+
+  return json({
+    ok: true, items: items, count: items.length, country: cc,
+    upstream: list.length, shown: items.length
+  });
 }
 
 async function trPostback(request, env, url, path) {

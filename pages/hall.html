@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/style.css?v=17">
 <link rel="stylesheet" href="/css/home.css?v=17">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/hall.css?v=13">
+<link rel="stylesheet" href="/css/hall.css?v=14">
 <script src="/js/config.js?v=11"></script>
 <script src="/js/core.js?v=42"></script>
 </head>
@@ -79,11 +79,26 @@
     </div>
 
     <div class="pg-tools">
-      <div class="pg-tabs">
-        <button class="pg-tab" type="button" data-sort="fc" data-label="积分" data-first="desc">积分</button>
-        <button class="pg-tab" type="button" data-sort="time" data-label="时间" data-first="asc">时间</button>
-        <button class="pg-tab" type="button" data-sort="star" data-label="星级" data-first="desc">星级</button>
-        <button class="pg-tab" type="button" data-sort="inc" data-label="发生率" data-first="desc">发生率</button>
+      <div class="pg-tools__l">
+        <div class="pg-filter" id="provFilter" hidden>
+          <button class="pg-filter__btn" type="button" id="provBtn" aria-haspopup="true" aria-expanded="false">
+            <span id="provLabel">全部问卷商</span>
+            <span class="pg-filter__caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="pg-filter__pop" id="provPop" hidden>
+            <label class="pg-filter__opt">
+              <input type="checkbox" id="provAll" checked>
+              <span>全部</span>
+            </label>
+            <div class="pg-filter__list" id="provList"></div>
+          </div>
+        </div>
+        <div class="pg-tabs">
+          <button class="pg-tab" type="button" data-sort="fc" data-label="积分" data-first="desc">积分</button>
+          <button class="pg-tab" type="button" data-sort="time" data-label="时间" data-first="asc">时间</button>
+          <button class="pg-tab" type="button" data-sort="star" data-label="星级" data-first="desc">星级</button>
+          <button class="pg-tab" type="button" data-sort="inc" data-label="通过率" data-first="desc">通过率</button>
+        </div>
       </div>
     </div>
 
@@ -91,7 +106,7 @@
       <div class="hl-aside__head">
         <span class="hl-aside__k">PARTNERS</span>
         <h2 class="hl-aside__t">问卷平台入口</h2>
-        <p class="hl-aside__d">第三方问卷墙，答完由对方结算，几秒后到账。TheoremReach 的问卷已并入上方列表，每份都标了分数，点具体那一份进；也可以点下面那张卡，进它自己的列表页慢慢挑。</p>
+        <p class="hl-aside__d">第三方问卷墙，答完由对方结算，几秒后到账。TheoremReach 与 CPX Research 的问卷已并入上方列表，每份都标了分数，点具体那一份进；也可以点下面那张卡，进它自己的列表页慢慢挑。</p>
       </div>
 
       <a class="plat" href="/api/theoremreach/go?wall=1" target="_blank" rel="noopener">
@@ -153,6 +168,7 @@
         <h2 class="hl-sect__t">全部问卷</h2>
       </div>
       <div class="sv-grid" id="svList"></div>
+      <p class="hl-note" id="hlFilterEmpty" hidden>当前问卷商下没有可参与的问卷。</p>
     </section>
 
     <div class="pg-empty" hidden>
@@ -207,7 +223,7 @@
   </div>
 </footer>
 
-<script src="/js/app.js?v=36" defer></script>
+<script src="/js/app.js?v=37" defer></script>
   <script src="/js/build-notice.js?v=3" defer></script>
 </body>
 </html>

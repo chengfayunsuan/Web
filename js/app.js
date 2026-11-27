@@ -359,8 +359,8 @@
 
     /* 站内作答的问卷没有外链，入口指向本站答题页 */
     var inline = !!s.inline;
-    /* 外部问卷墙的卷（id 带 tr- 前缀）：点了就是跳走，不进站内的参与记录 */
-    var external = /^tr-/.test(String(s.id || ''));
+    /* 外部问卷墙的卷（id 带 tr- / cpx- 前缀）：点了就是跳走，不进站内的参与记录 */
+    var external = /^(tr|cpx)-/.test(String(s.id || ''));
     var usable = (!!s.entry || inline) && !restricted;
     var netBlocked = !!netSuspect && usable;
 
@@ -451,6 +451,13 @@
     var list = $('svList');
     var empty = document.querySelector('.pg-empty');
     var count = $('hallCount');
+    var provFilter = $('provFilter');
+    var provBtn = $('provBtn');
+    var provPop = $('provPop');
+    var provListEl = $('provList');
+    var provAllEl = $('provAll');
+    var provLabel = $('provLabel');
+    var filterEmpty = $('hlFilterEmpty');
     if (!list) return;
 
     /* 先问一次出口网络：判定为代理/机房就把问卷入口标成「网络受限」 */
@@ -465,6 +472,95 @@
       .catch(function () {});
 
     var all = [];
+
+    /* 问卷商筛选：多选，默认全选。
+       库存刷新时新出现的问卷商默认选中，用户取消过的保持取消。 */
+    var providers = [];
+    var chosen = {};
+
+    function providerOf(s) { return String(s.provider || '').trim(); }
+
+    function collectProviders() {
+      var seen = {}, out = [];
+      all.forEach(function (s) {
+        var p = providerOf(s);
+        if (!p || seen[p]) return;
+        seen[p] = 1;
+        out.push(p);
+      });
+      return out;
+    }
+
+    function selectedCount() {
+      var n = 0;
+      providers.forEach(function (p) { if (chosen[p]) n++; });
+      return n;
+    }
+
+    function syncFilterLabel() {
+      var sel = selectedCount();
+      if (provAllEl) {
+        provAllEl.checked = providers.length > 0 && sel === providers.length;
+        provAllEl.indeterminate = sel > 0 && sel < providers.length;
+      }
+      if (!provLabel) return;
+      if (!providers.length || sel === providers.length) {
+        provLabel.textContent = T('全部问卷商', 'All providers');
+      } else if (sel === 0) {
+        provLabel.textContent = T('未选问卷商', 'No providers');
+      } else if (sel === 1) {
+        provLabel.textContent = providers.filter(function (p) { return chosen[p]; })[0];
+      } else {
+        provLabel.textContent = T('已选 ' + sel + ' 个', sel + ' selected');
+      }
+    }
+
+    function paintProviders() {
+      providers = collectProviders();
+      if (!providers.length) {
+        if (provFilter) provFilter.hidden = true;
+        return;
+      }
+      if (provFilter) provFilter.hidden = false;
+
+      /* 已经不在库存里的问卷商清掉，免得勾选项对不上 */
+      Object.keys(chosen).forEach(function (p) {
+        if (providers.indexOf(p) < 0) delete chosen[p];
+      });
+
+      if (provListEl) {
+        provListEl.innerHTML = '';
+        providers.forEach(function (p) {
+          if (!(p in chosen)) chosen[p] = true;
+          var lab = document.createElement('label');
+          lab.className = 'pg-filter__opt';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = !!chosen[p];
+          cb.addEventListener('change', function () {
+            chosen[p] = cb.checked;
+            syncFilterLabel();
+            paint();
+          });
+          var name = document.createElement('span');
+          name.textContent = p;
+          lab.appendChild(cb);
+          lab.appendChild(name);
+          provListEl.appendChild(lab);
+        });
+      }
+      syncFilterLabel();
+    }
+
+    /* 筛选后的库存。没有问卷商字段的站内问卷不参与筛选 */
+    function visibleItems() {
+      if (!providers.length) return all.slice();
+      if (selectedCount() === providers.length) return all.slice();
+      return all.filter(function (s) {
+        var p = providerOf(s);
+        return !p || !!chosen[p];
+      });
+    }
 
     /* 排序按钮：四个字段，每个都是三态循环
          未选 → 首选方向 → 反方向 → 未选
@@ -504,7 +600,8 @@
     }
 
     function paint() {
-      var sorted = all.slice();
+      var src = visibleItems();
+      var sorted = src.slice();
       var d = sortKey ? (sortDir[sortKey] || 0) : 0;
 
       /* 三个都未选时保持上游给的顺序（官方推荐序），不做任何排 */
@@ -518,7 +615,11 @@
       list.innerHTML = '';
       sorted.forEach(function (s) { list.appendChild(cardEl(s, false)); });
 
-      var picks = all.filter(function (s) { return s.featured; });
+      /* 有库存但当前问卷商筛选下一份没有：说清楚是筛选结果空，不是没问卷 */
+      if (filterEmpty) filterEmpty.hidden = !(all.length && !sorted.length);
+      if (count) count.textContent = String(sorted.length);
+
+      var picks = src.filter(function (s) { return s.featured; });
       if (featWrap && featList) {
         featList.innerHTML = '';
         if (picks.length) {
@@ -548,15 +649,52 @@
       });
     });
 
-    function afterLoad() {
-      if (count) count.textContent = String(all.length);
+    /* 问卷商下拉：勾选即生效，不关闭面板（要能连着勾好几个）；
+       点面板外或按 Esc 收起。 */
+    if (provBtn && provPop) {
+      provBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = provPop.hidden;
+        provPop.hidden = !open;
+        provBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
 
+      if (provAllEl) {
+        provAllEl.addEventListener('change', function () {
+          var v = !!provAllEl.checked;
+          providers.forEach(function (p) { chosen[p] = v; });
+          paintProviders();
+          paint();
+        });
+      }
+
+      document.addEventListener('click', function (e) {
+        if (provPop.hidden) return;
+        if (provFilter && provFilter.contains(e.target)) return;
+        provPop.hidden = true;
+        provBtn.setAttribute('aria-expanded', 'false');
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || provPop.hidden) return;
+        provPop.hidden = true;
+        provBtn.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function afterLoad() {
       if (!all.length) {
+        if (count) count.textContent = '0';
+        if (provFilter) provFilter.hidden = true;
+        if (filterEmpty) filterEmpty.hidden = true;
         document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
         if (empty) empty.hidden = false;
         return;
       }
 
+      /* 上一次可能是空的（区块被藏起来了），有库存就全部放出来 */
+      document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = false; });
+      paintProviders();
       paint();
     }
 
@@ -600,21 +738,23 @@
     }
 
     /* 大厅优先摆外部问卷墙的真实库存——那些是真有钱的卷。
-       拿不到（没开权限、上游抽风、当地确实没库存）再退回站内问卷，绝不留白屏。 */
+       TR 与 CPX 两份列表并行拉、合并展示；都拿不到（没开权限、上游抽风、
+       当地确实没库存）再退回站内问卷，绝不留白屏。 */
     function loadAll() {
-      getJSON('/api/surveys/tr').then(function (r) {
-        if (r.status === 200 && r.body && r.body.ok) {
-          var ext = r.body.items || [];
-          if (ext.length) {
-            all = ext;
-            afterLoad();
-            return;
+      Promise.all([getJSON('/api/surveys/tr'), getJSON('/api/surveys/cpx')]).then(function (res) {
+        var items = [];
+        var verify = false;
+
+        res.forEach(function (r) {
+          if (r.status === 200 && r.body && r.body.ok) {
+            (r.body.items || []).forEach(function (s) { items.push(s); });
+          } else if (r.body && r.body.error === 'email_unverified') {
+            verify = true;
           }
-        }
-        if (r.body && r.body.error === 'email_unverified') {
-          needVerify();
-          return;
-        }
+        });
+
+        if (verify) { needVerify(); return; }
+        if (items.length) { all = items; afterLoad(); return; }
         loadStation();
       });
     }

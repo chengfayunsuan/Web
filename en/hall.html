@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/style.css?v=17">
 <link rel="stylesheet" href="/css/home.css?v=17">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/hall.css?v=13">
+<link rel="stylesheet" href="/css/hall.css?v=14">
 <script src="/js/config.js?v=11"></script>
 <script src="/js/core.js?v=42"></script>
 </head>
@@ -79,11 +79,26 @@
     </div>
 
     <div class="pg-tools">
-      <div class="pg-tabs">
-        <button class="pg-tab" type="button" data-sort="fc" data-label="Payout" data-first="desc">Payout</button>
-        <button class="pg-tab" type="button" data-sort="time" data-label="Time" data-first="asc">Time</button>
-        <button class="pg-tab" type="button" data-sort="star" data-label="Rating" data-first="desc">Rating</button>
-        <button class="pg-tab" type="button" data-sort="inc" data-label="Pass rate" data-first="desc">Pass rate</button>
+      <div class="pg-tools__l">
+        <div class="pg-filter" id="provFilter" hidden>
+          <button class="pg-filter__btn" type="button" id="provBtn" aria-haspopup="true" aria-expanded="false">
+            <span id="provLabel">All providers</span>
+            <span class="pg-filter__caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="pg-filter__pop" id="provPop" hidden>
+            <label class="pg-filter__opt">
+              <input type="checkbox" id="provAll" checked>
+              <span>All</span>
+            </label>
+            <div class="pg-filter__list" id="provList"></div>
+          </div>
+        </div>
+        <div class="pg-tabs">
+          <button class="pg-tab" type="button" data-sort="fc" data-label="Payout" data-first="desc">Payout</button>
+          <button class="pg-tab" type="button" data-sort="time" data-label="Time" data-first="asc">Time</button>
+          <button class="pg-tab" type="button" data-sort="star" data-label="Rating" data-first="desc">Rating</button>
+          <button class="pg-tab" type="button" data-sort="inc" data-label="Pass rate" data-first="desc">Pass rate</button>
+        </div>
       </div>
     </div>
 
@@ -91,7 +106,7 @@
       <div class="hl-aside__head">
         <span class="hl-aside__k">PARTNERS</span>
         <h2 class="hl-aside__t">Survey platforms</h2>
-        <p class="hl-aside__d">Third-party survey walls outside our own listings. They settle with us server to server, and rewards land here within seconds. TheoremReach surveys appear in the list above with their payout shown — or open the TR card below for its own list page.</p>
+        <p class="hl-aside__d">Third-party survey walls outside our own listings. They settle with us server to server, and rewards land here within seconds. TheoremReach and CPX Research surveys appear in the list above with their payout shown — or open a partner card below for its own list page.</p>
       </div>
 
       <a class="plat" href="/api/theoremreach/go?wall=1" target="_blank" rel="noopener">
@@ -153,6 +168,7 @@
         <h2 class="hl-sect__t">All surveys</h2>
       </div>
       <div class="sv-grid" id="svList"></div>
+      <p class="hl-note" id="hlFilterEmpty" hidden>No surveys from the selected providers right now.</p>
     </section>
 
     <div class="pg-empty" hidden>
@@ -206,7 +222,7 @@
   </div>
 </footer>
 
-<script src="/js/app.js?v=36" defer></script>
+<script src="/js/app.js?v=37" defer></script>
 <script src="/en/dict.js?v=8"></script>
 <script src="/js/i18n-en.js?v=6" defer></script>
   <script src="/js/build-notice.js?v=3" defer></script>
