@@ -41,6 +41,8 @@
      传 digits 可以再往下压（兑换商品按整数 XD 定价，传 0），但不能超过 1。 */
   function money(v, digits) {
     var n = Number(v) || 0;
+    /* 收支明细按 4 位小数原样展示（库内精度就是 4 位），既不舍入也不省略末尾零 */
+    if (Number(digits) === 4) return n.toFixed(4);
     var d = digits == null ? 1 : Number(digits);
     if (!(d >= 0)) d = 1;
     if (d > 1) d = 1;

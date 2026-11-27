@@ -1292,7 +1292,7 @@
 
   function initLedger(me) {
     var now = $('lgNow');
-    if (now && me) setAmt(now, me.fc);
+    if (now && me) setAmt(now, me.fc, 4);
 
     var body = $('lgBody');
     var empty = $('lgEmpty');
@@ -1361,7 +1361,12 @@
         dv.setAttribute('data-cfb', it.delta);
         dv.setAttribute('data-cur', 'amount');
         dv.setAttribute('data-signed', '1');
-        dv.textContent = (window.CF && CF.money ? CF.money(it.delta) : s.text);
+        /* 明细页固定 4 位小数，原样展示，不做四舍五入 */
+        dv.setAttribute('data-cur-digits', '4');
+        var nd = Number(it.delta) || 0;
+        dv.textContent = window.CF && CF.money
+          ? (nd < 0 ? '−' : '+') + CF.money(Math.abs(nd), 4)
+          : s.text;
         d.appendChild(dv);
         var du = document.createElement('i');
         du.setAttribute('data-cur', 'code');
@@ -1371,7 +1376,7 @@
         var b = document.createElement('span');
         b.className = 'lg-row__b';
         var bb = document.createElement('b');
-        setAmt(bb, it.balance);
+        setAmt(bb, it.balance, 4);
         b.appendChild(bb);
         var bu = document.createElement('i');
         bu.setAttribute('data-cur', 'code');
@@ -1419,8 +1424,8 @@
       var inc = $('lgIn');
       var out = $('lgOut');
       var cnt = $('lgCount');
-      if (inc) setAmt(inc, sum.income);
-      if (out) setAmt(out, sum.outcome);
+      if (inc) setAmt(inc, sum.income, 4);
+      if (out) setAmt(out, sum.outcome, 4);
       if (cnt) cnt.textContent = sum.count || 0;
     }
 
