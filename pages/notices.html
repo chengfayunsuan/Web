@@ -8,11 +8,11 @@
 <meta name="theme-color" content="#E0291E">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css?v=17">
-<link rel="stylesheet" href="/css/home.css?v=17">
+<link rel="stylesheet" href="/css/home.css?v=18">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/legal.css?v=3">
 <link rel="stylesheet" href="/css/notice.css?v=2">
 <script src="/js/config.js?v=11"></script>
+<script src="/js/core.js?v=42"></script>
 </head>
 <body data-page="notices">
 
@@ -23,8 +23,16 @@
       Chengfa
       <span class="brand__en">CHENGFA</span>
     </a>
+
     <div class="hm-nav">
+      <a class="hm-nav__notice" href="/notices" title="公告" aria-current="page">公告</a>
       <a class="hm-nav__lang" href="/en/notices" title="Switch to English">EN</a>
+      <span class="hm-nav__bal">
+        <b id="navBal">0</b><button class="hm-nav__cur" type="button" data-cur-toggle aria-label="切换显示币种" title="计价单位固定为乘法刀（XD）"><span data-cur="code">XD</span></button>
+      </span>
+      <span class="hm-nav__sep" aria-hidden="true"></span>
+      <a class="hm-nav__name" id="navName" href="/home">我</a>
+      <button class="hm-nav__exit" id="logoutBtn" type="button">退出</button>
     </div>
   </div>
 </header>
@@ -56,12 +64,14 @@
 </nav>
 
 <main class="pg">
-  <div class="wrap legal">
+  <div class="wrap">
 
-    <div class="legal__head">
-      <span class="pg-k">ANNOUNCEMENTS</span>
-      <h1 class="pg-t">公告</h1>
-      <p class="legal__meta" id="ntMeta">载入中…</p>
+    <div class="pg-head">
+      <div>
+        <span class="pg-k">ANNOUNCEMENTS</span>
+        <h1 class="pg-t">公告</h1>
+        <p class="pg-d" id="ntMeta">载入中…</p>
+      </div>
     </div>
 
     <div class="nt-list" id="ntList"></div>
@@ -69,6 +79,8 @@
 
   </div>
 </main>
+
+<div class="hm-toast" id="toast" role="status" aria-live="polite"></div>
 
 <footer class="foot">
   <div class="wrap">
@@ -80,7 +92,8 @@
   </div>
 </footer>
 
+<script src="/js/app.js?v=36" defer></script>
 <script src="/js/notices.js?v=2" defer></script>
-  <script src="/js/build-notice.js?v=3" defer></script>
+<script src="/js/build-notice.js?v=3" defer></script>
 </body>
 </html>
