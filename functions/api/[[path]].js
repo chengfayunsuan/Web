@@ -3166,9 +3166,16 @@ async function fxRate(env) {
  *     提现、兑换、人工调账、CDK 都不算，那不是「答题赚到的」。
  *   - 被筛掉（survey_reject）本来就没有入账，自然不出现 —— 这就是「被踢出的不算」。
  *   - 只有完成才有 reward 流水，所以「只有完成了才算」是流水本身保证的。
- *   - 事后冲正（*_reverse）是实实在在的亏损，照样上墙，delta 为负。
+ *   - 事后冲正（*_reverse）照样上墙，delta 为负 —— 但只限「原任务本身是真的」。
  *   - 封禁用户与已注销用户不上墙。
- *   - 所有账号都上：只记成功的（reward）与官方撤回的（reverse），筛除补偿不在此列。
+ *   - 所有账号都上，但每一笔都得有真金白银背书：
+ *       · 问卷墙单子必须在 mo_task 里有对应任务（同 uid 同 transaction_id），
+ *         payout_usd > 0、USD 计价；
+ *       · demo- 开头的（Moonetix 模拟单）、cpx-selftest 开头的（自测单）一律不上；
+ *       · Opinion Universe 的接入调试单（offer_name 为空或是 {eventname} 这种模板残留）不上；
+ *       · 站内问卷只放真实问卷，标题里带「模拟」「实验」的测试卷不上。
+ *     payout_usd 是服务商实际付给我们的钱，这是唯一可靠的「真实完成」证据
+ *     —— 光看流水看不出真假，2026-11-27 用这条把 8 条 demo 单和一堆调试单清出墙。
  */
 const FEED_KINDS = [
   'cpx_reward', 'theoremreach_reward', 'opinionuniverse_reward',
@@ -3179,22 +3186,56 @@ const FEED_KINDS = [
 async function feedRecent(request, env) {
   const r = await env.DB.prepare(
     `SELECT l.delta AS d, l.kind AS k, l.created_at AS t, u.username AS n
-       FROM fc_ledger l JOIN users u ON u.id = l.uid
+       FROM fc_ledger l
+       JOIN users u ON u.id = l.uid
+       LEFT JOIN mo_task m ON m.transaction_id = l.ref AND m.uid = l.uid
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
         AND l.memo NOT LIKE '%筛选补偿%'
+        AND l.memo NOT LIKE '%模拟%'
+        AND l.memo NOT LIKE '%实验%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
+        AND (
+          l.kind = 'survey_reward'
+          OR (
+            CAST(m.payout_usd AS REAL) > 0
+            AND m.currency = 'USD'
+            AND m.transaction_id NOT LIKE 'demo%'
+            AND m.transaction_id NOT LIKE '%selftest%'
+            AND (m.provider <> 'opinionuniverse'
+                 OR (m.offer_name <> ''
+                     AND m.offer_name NOT LIKE '%{%'
+                     AND m.offer_name NOT IN ('ee', 'event', 'test')))
+          )
+        )
       ORDER BY l.id DESC
       LIMIT 50`
   ).bind.apply(env.DB.prepare(
     `SELECT l.delta AS d, l.kind AS k, l.created_at AS t, u.username AS n
-       FROM fc_ledger l JOIN users u ON u.id = l.uid
+       FROM fc_ledger l
+       JOIN users u ON u.id = l.uid
+       LEFT JOIN mo_task m ON m.transaction_id = l.ref AND m.uid = l.uid
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
         AND l.memo NOT LIKE '%筛选补偿%'
+        AND l.memo NOT LIKE '%模拟%'
+        AND l.memo NOT LIKE '%实验%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
+        AND (
+          l.kind = 'survey_reward'
+          OR (
+            CAST(m.payout_usd AS REAL) > 0
+            AND m.currency = 'USD'
+            AND m.transaction_id NOT LIKE 'demo%'
+            AND m.transaction_id NOT LIKE '%selftest%'
+            AND (m.provider <> 'opinionuniverse'
+                 OR (m.offer_name <> ''
+                     AND m.offer_name NOT LIKE '%{%'
+                     AND m.offer_name NOT IN ('ee', 'event', 'test')))
+          )
+        )
       ORDER BY l.id DESC
       LIMIT 50`
   ), FEED_KINDS).all();
