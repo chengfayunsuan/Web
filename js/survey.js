@@ -316,7 +316,8 @@
         myUid = u.uid || 0;
         if (window.CF && CF.cache) CF.cache.set(u);
         var bal = $('navBal');
-        if (bal) bal.textContent = u.fc;
+        /* 必须走 CF.amount，否则切到 XD 时单位变了、数字还是 XB */
+        if (bal) { if (window.CF && CF.amount) CF.amount(bal, u.fc); else bal.textContent = u.fc; }
         var nm = $('navName');
         if (nm) nm.textContent = u.username || T('我','Me');
       })
