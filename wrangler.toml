@@ -3,7 +3,11 @@ compatibility_date = "2026-11-16"
 pages_build_output_dir = "."
 
 # 账户数据库
+# migrations_dir：只放自动化迁移（从 0001 起）。
+# 历史手工迁移 db/migrate-002..030 留在原地，不要挪进来，
+# 否则 wrangler 会把已经执行过的 ALTER 再跑一遍。
 [[d1_databases]]
 binding = "DB"
 database_name = "chengfa-db"
 database_id = "43824080-6865-44ff-b6a2-4618089d9f20"
+migrations_dir = "db/migrations"

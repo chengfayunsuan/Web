@@ -1,0 +1,52 @@
+name: D1 Migrations
+
+# 自动把 db/migrations 里「尚未执行」的迁移打到生产库。
+#
+# 触发：
+#   - push 到 main 且改动了 db/migrations/**（自动）
+#   - Actions 页面手动 Run workflow（兜底）
+#
+# 为什么不能把历史迁移也放进来：
+#   db/migrate-002..030 是早期手工执行的，其中不少是 ALTER TABLE ADD COLUMN，
+#   重复执行会直接报错。wrangler 只跟踪 migrations_dir 里的文件，
+#   所以历史文件留在 db/ 原地，自动化只管 db/migrations/0001 之后的新迁移。
+#
+# 幂等：wrangler 用 d1_migrations 表记录已执行的文件，重复触发不会重复执行。
+#
+# 需要的两个 GitHub Secrets（与部署共用）：
+#   CLOUDFLARE_API_TOKEN   Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" 模板
+#   CLOUDFLARE_ACCOUNT_ID  Cloudflare → 任意域名的 Overview 页右下角 Account ID
+# 没配密钥时自动跳过，不会让仓库出现红叉。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/migrations/**'
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 检查密钥
+        id: guard
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::未配置 CLOUDFLARE_API_TOKEN，跳过数据库迁移"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 应用 D1 迁移
+        if: steps.guard.outputs.skip == 'false'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply chengfa-db --remote --yes

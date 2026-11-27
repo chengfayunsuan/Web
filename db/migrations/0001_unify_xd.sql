@@ -1,5 +1,5 @@
 -- ============================================================
--- 031 · 全站统一为 XD（乘法刀）
+-- 0001 · 全站统一为 XD（乘法刀）
 --
 -- 背景：以前内部按 XB（乘法币，锚人民币，1 XB = 1 元）记账，XD 只在展示层按
 --       实时汇率换算。现在废掉 XB，库里的金额一律改成 XD（100 XD = 1 美元）。
@@ -8,11 +8,13 @@
 --   rate = fx_rate.usd_cny（1 美元兑多少人民币，取 id = 1 那一行）
 --   推导：old = 人民币 × 10000；new = XD × 10000 = (人民币 / rate × 100) × 10000
 --
--- 一次性：所有 UPDATE 都带 `NOT EXISTS (app_meta.k = 'unit_migrated')` 守卫，
---          末尾写入该标记；脚本重复执行不会二次折算。
---          整段包在事务里，中途失败则整体回滚，不会只折算一半。
+-- 执行方式：由 GitHub Actions 的 D1 Migrations 工作流自动执行
+--           （wrangler d1 migrations apply，已执行过的文件不会重复跑）。
+-- 幂等：所有 UPDATE 都带 `NOT EXISTS (app_meta.k = 'unit_migrated')` 守卫，
+--       即使有人手动执行过本文件，再被 wrangler 跑一次也不会二次折算。
+--       （wrangler 会为每个迁移包事务，所以文件里不要再写 BEGIN/COMMIT。）
 --
--- 执行前检查（务必先看）：
+-- 执行前检查（建议在本地先看一眼）：
 --   1) 确认汇率正确：
 --        SELECT id, usd_cny FROM fx_rate WHERE id = 1;
 --   2) 确认 store_items 有 price_xd 列（代码已在读它，线上通常已有）：
@@ -21,8 +23,6 @@
 --      所以只能手动判断，已存在时执行会报 duplicate column 错误）：
 --        ALTER TABLE store_items ADD COLUMN price_xd INTEGER NOT NULL DEFAULT 0;
 -- ============================================================
-
-BEGIN TRANSACTION;
 
 -- 用户余额
 UPDATE users
@@ -84,5 +84,3 @@ UPDATE lab_run
 -- 记录本次迁移使用的汇率，供事后核对
 INSERT OR IGNORE INTO app_meta (k, v)
 SELECT 'unit_migrated', CAST(COALESCE((SELECT usd_cny FROM fx_rate WHERE id = 1), 7.0) AS TEXT);
-
-COMMIT;
