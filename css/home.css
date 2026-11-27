@@ -482,6 +482,105 @@
   line-height: 1.75;
 }
 
+/* ---------- 最近入账展览 ---------- */
+
+.exh { margin-top: 32px; }
+
+.exh__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--ink);
+}
+
+.exh__k {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .24em;
+  color: var(--red-deep);
+}
+
+.exh__t {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+
+.exh__count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: #8A8577;
+}
+
+.exh__count b { font-size: 20px; color: var(--ink); letter-spacing: 0; }
+
+.exh__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.exh__i {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--hair);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.exh__when {
+  flex-shrink: 0;
+  width: 92px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #8A8577;
+}
+
+.exh__who {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.exh__what {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #4A453A;
+}
+
+.exh__amt {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.exh__amt--up { color: var(--red); }
+.exh__amt--dn { color: #4A453A; }
+
+.exh__empty {
+  margin: 0;
+  padding: 18px 2px;
+  font-size: 13px;
+  color: #8A8577;
+}
+
 /* ---------- 问卷大厅 ---------- */
 
 .hall {
@@ -735,6 +834,12 @@
   .hall__steps li { padding: 16px 18px; }
 
   .prog__note { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+  .exh { margin-top: 24px; }
+  .exh__i { gap: 10px; font-size: 13px; }
+  .exh__when { width: 76px; font-size: 11px; }
+  .exh__who { max-width: 34%; }
+  .exh__amt { font-size: 13px; }
 
 }
 

@@ -313,9 +313,77 @@
       .catch(function () { box.textContent = ''; });
   }
 
+  /* ---------- 最近入账展览 ---------- */
+  /* 数据来自 /api/feed/recent：只收问卷墙的 reward 与 reverse，
+     被筛掉（disqualified）的本来就没有流水，封禁与已注销用户后端已滤掉。 */
+
+  function ago(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return T('刚刚', 'just now');
+    if (s < 3600) return Math.floor(s / 60) + T(' 分钟前', 'm ago');
+    if (s < 86400) return Math.floor(s / 3600) + T(' 小时前', 'h ago');
+    if (s < 86400 * 30) return Math.floor(s / 86400) + T(' 天前', 'd ago');
+    return fmtDate(iso);
+  }
+
+  function loadExhibit() {
+    var list = $('exhList');
+    if (!list) return;
+
+    fetch('/api/feed/recent', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+
+        var items = d.items || [];
+        var count = $('exhCount');
+        var empty = $('exhEmpty');
+
+        if (count) count.textContent = String(items.length);
+        if (!items.length) {
+          if (empty) empty.hidden = false;
+          return;
+        }
+
+        list.textContent = '';
+        items.forEach(function (it) {
+          var li = document.createElement('li');
+          li.className = 'exh__i';
+
+          var when = document.createElement('span');
+          when.className = 'exh__when';
+          when.textContent = ago(it.at);
+          li.appendChild(when);
+
+          var who = document.createElement('span');
+          who.className = 'exh__who';
+          who.textContent = it.name;
+          li.appendChild(who);
+
+          var what = document.createElement('span');
+          what.className = 'exh__what';
+          what.textContent = it.up
+            ? T('完成问卷', 'Survey done')
+            : T('入账冲回', 'Reversed');
+          li.appendChild(what);
+
+          var amt = document.createElement('span');
+          amt.className = 'exh__amt ' + (it.up ? 'exh__amt--up' : 'exh__amt--dn');
+          amt.textContent = (it.up ? '+' : '-') + trimNum(it.xd) + ' XD';
+          li.appendChild(amt);
+
+          list.appendChild(li);
+        });
+      })
+      .catch(function () { /* 展览是装饰性的，失败就空着 */ });
+  }
+
   function show(user) {
     render(user);
     loadNotices();
+    loadExhibit();
     loading.hidden = true;
     app.hidden = false;
   }
