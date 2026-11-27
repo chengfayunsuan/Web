@@ -11,7 +11,11 @@ name: Deploy to Cloudflare Pages
 # 需要的两个 GitHub Secrets（Settings → Secrets and variables → Actions）：
 #   CLOUDFLARE_API_TOKEN   Cloudflare → My Profile → API Tokens → 用 "Edit Cloudflare Workers" 模板
 #   CLOUDFLARE_ACCOUNT_ID  Cloudflare → 任意域名的 Overview 页右下角 Account ID
-# 没配这两个密钥时这个 job 会自动跳过，不会让仓库出现红叉。
+#
+# 2026-11-27 查出来的事：这两个密钥从来没配过。于是这条 workflow 每次都走
+# 「检查为空 → 跳过」，GitHub 打绿勾，实际一行都没部署；线上一直是 Cloudflare
+# 自己的 Git 集成在干活。绿勾把「什么都没做」藏着，比红叉更坑。
+# 现在改成缺密钥直接 exit 1，把原因写在错误里，不再假装成功。
 
 on:
   workflow_dispatch:
@@ -23,19 +27,21 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 检查密钥
-        id: guard
         env:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::未配置 CLOUDFLARE_API_TOKEN，跳过部署"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+          missing=""
+          if [ -z "$TOKEN" ]; then missing="CLOUDFLARE_API_TOKEN"; fi
+          if [ -z "$ACCOUNT" ]; then missing="${missing:+$missing、}CLOUDFLARE_ACCOUNT_ID"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::缺少 GitHub Secret：$missing。没有密钥就部署不了，不会再报成功。"
+            echo "去 Settings → Secrets and variables → Actions 补齐，或者交给 Cloudflare 的 Git 集成。"
+            exit 1
           fi
+          echo "密钥齐全，开始部署"
 
       - name: 部署静态站点
-        if: steps.guard.outputs.skip == 'false'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
