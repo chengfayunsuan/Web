@@ -3168,7 +3168,7 @@ async function fxRate(env) {
  *   - 只有完成才有 reward 流水，所以「只有完成了才算」是流水本身保证的。
  *   - 事后冲正（*_reverse）是实实在在的亏损，照样上墙，delta 为负。
  *   - 封禁用户与已注销用户不上墙。
- *   - 只上普通用户（role=user）：owner/admin 的测试流水、premium 测试号都不算真实活动。
+ *   - 所有账号都上：只记成功的（reward）与官方撤回的（reverse），筛除补偿不在此列。
  */
 const FEED_KINDS = [
   'cpx_reward', 'theoremreach_reward', 'opinionuniverse_reward',
@@ -3183,7 +3183,6 @@ async function feedRecent(request, env) {
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
-        AND u.role = 'user'
         AND l.memo NOT LIKE '%筛选补偿%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
       ORDER BY l.id DESC
@@ -3194,7 +3193,6 @@ async function feedRecent(request, env) {
       WHERE l.uid > 0
         AND u.deleted_at IS NULL
         AND u.status <> 'banned'
-        AND u.role = 'user'
         AND l.memo NOT LIKE '%筛选补偿%'
         AND l.kind IN (${FEED_KINDS.map(function () { return '?'; }).join(',')})
       ORDER BY l.id DESC
