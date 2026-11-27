@@ -1,8 +1,12 @@
 name: Deploy to Cloudflare Pages
 
-# 为什么需要这个：Cloudflare Pages 的 Git 自动部署会卡住（最近一次部署停在 d737fbb，
-# 之后 6 个提交都没上线）。这个 workflow 直接用 wrangler 把仓库原样推上去，
-# 每次 push 到 main 就部署一次，绕开 Pages 自己的构建队列。
+# 为什么需要这个：2026-10-22 建的兜底。当时 Cloudflare Pages 的 Git 自动部署卡住了
+# （停在 d737fbb，之后 6 个提交都没上线），所以加这条用 wrangler 直接推，绕开它的构建队列。
+#
+# 2026-11-27 改了触发方式：只留 workflow_dispatch（手动）。
+# 原因 —— Cloudflare 的 Git 集成已经恢复正常，push 会正常触发 pages build and deployment；
+# 这条还挂在 push 上就会每次提交跑两遍部署，谁后完成谁生效，排查线上版本时一团乱。
+# 平时交给 Cloudflare 那条；它哪天又卡住，去 Actions 页面手动 Run workflow 一次即可。
 #
 # 需要的两个 GitHub Secrets（Settings → Secrets and variables → Actions）：
 #   CLOUDFLARE_API_TOKEN   Cloudflare → My Profile → API Tokens → 用 "Edit Cloudflare Workers" 模板
@@ -10,8 +14,6 @@ name: Deploy to Cloudflare Pages
 # 没配这两个密钥时这个 job 会自动跳过，不会让仓库出现红叉。
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
