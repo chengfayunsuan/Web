@@ -3171,7 +3171,8 @@ async function fxRate(env) {
  *   - 所有账号都上，但每一笔都得有真金白银背书：
  *       · 问卷墙单子必须在 mo_task 里有对应任务（同 uid 同 transaction_id），
  *         payout_usd > 0、USD 计价；
- *       · demo- 开头的（Moonetix 模拟单）、cpx-selftest 开头的（自测单）一律不上；
+ *       · demo- 开头的（Moonetix 模拟单）、cpx-selftest 开头的（自测单）、
+ *         event_id 以 cf 开头的（2026-11 手工造的 TR demo 单）一律不上；
  *       · Opinion Universe 的接入调试单（offer_name 为空或是 {eventname} 这种模板残留）不上；
  *       · 站内问卷只放真实问卷，标题里带「模拟」「实验」的测试卷不上。
  *     payout_usd 是服务商实际付给我们的钱，这是唯一可靠的「真实完成」证据
@@ -3200,9 +3201,10 @@ async function feedRecent(request, env) {
           l.kind = 'survey_reward'
           OR (
             CAST(m.payout_usd AS REAL) > 0
-            AND m.currency = 'USD'
+            AND UPPER(m.currency) IN ('USD', 'XB', 'XD')
             AND m.transaction_id NOT LIKE 'demo%'
             AND m.transaction_id NOT LIKE '%selftest%'
+            AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
             AND (m.provider <> 'opinionuniverse'
                  OR (m.offer_name <> ''
                      AND m.offer_name NOT LIKE '%{%'
@@ -3227,9 +3229,10 @@ async function feedRecent(request, env) {
           l.kind = 'survey_reward'
           OR (
             CAST(m.payout_usd AS REAL) > 0
-            AND m.currency = 'USD'
+            AND UPPER(m.currency) IN ('USD', 'XB', 'XD')
             AND m.transaction_id NOT LIKE 'demo%'
             AND m.transaction_id NOT LIKE '%selftest%'
+            AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
             AND (m.provider <> 'opinionuniverse'
                  OR (m.offer_name <> ''
                      AND m.offer_name NOT LIKE '%{%'
