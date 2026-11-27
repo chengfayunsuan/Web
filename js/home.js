@@ -328,9 +328,9 @@
     return fmtDate(iso);
   }
 
-  /* 流水来源：kind → 展示名。reverse 与对应 reward 同源 */
+  /* 流水来源：kind → 问卷商名。reverse 与对应 reward 同源 */
   var SRC = {
-    survey_reward: { zh: '站内问卷', en: 'Site survey' },
+    survey_reward: { zh: '自营', en: 'In-house' },
     cpx_reward: { zh: 'CPX', en: 'CPX' },
     theoremreach_reward: { zh: 'TheoremReach', en: 'TheoremReach' },
     opinionuniverse_reward: { zh: 'Opinion Universe', en: 'Opinion Universe' },
