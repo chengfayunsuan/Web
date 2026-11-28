@@ -330,7 +330,11 @@
       card.appendChild(head);
     }
 
-    if (s.requirement) {
+    /* 有的问卷商把「要求」原样写成自己的名字（「CPX 问卷」），那不是样本条件，
+       是废话——这种行直接不渲染，别占版面 */
+    var reqText = String(s.requirement || '').trim();
+    var junkReq = /^(cpx|theoremreach|theorem\s?reach|moonetix|opinion\s?universe|bitlabs)\s*(问卷|survey)?$/i.test(reqText);
+    if (reqText && !junkReq) {
       var req = document.createElement('p');
       req.className = 'svc__req';
       var em = document.createElement('em');
@@ -339,7 +343,7 @@
       /* 样本条件是问卷商写的原文，标记跳过翻译；「要求」标签本身可翻 */
       var rv = document.createElement('span');
       rv.setAttribute('data-tr-skip', '');
-      rv.textContent = s.requirement;
+      rv.textContent = reqText;
       req.appendChild(rv);
       card.appendChild(req);
     }
