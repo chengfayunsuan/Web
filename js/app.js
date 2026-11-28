@@ -783,9 +783,9 @@
 
         if (verify) { needVerify(); return; }
         if (items.length) { all = items; afterLoad(); return; }
-        /* 两家都连不上 ≠ 没有问卷。说成「当前没有可参与的问卷」是在骗人，
-           用户会以为站里真没货，也不会想到再点一次。 */
-        if (dead === res.length) { wallDown(); return; }
+        /* 一家挂了、另一家确实没货时，别退回站内问卷说「当前没有可参与的问卷」
+           ——用户会以为站里真没货，也不会想到再点一次。直接说服务没连上。 */
+        if (dead > 0) { wallDown(); return; }
         loadStation();
       });
     }
