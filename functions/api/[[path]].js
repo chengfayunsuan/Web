@@ -2231,42 +2231,55 @@ async function cpxSurveyList(request, env) {
     return json({ ok: true, items: [], note: note, detail: detail ? String(detail).slice(0, 160) : '' });
   };
 
-  let payload = null;
-  try {
-    /* 上游慢就放弃，让大厅退回站内问卷，比挂着转圈强。
-       阈值给 5.5 秒：2026-11-28 实测 CPX 端到端 1.7~5.2 秒，
-       原来 3 秒会把自己正常的响应砍断，表现为「大厅突然没卷」。 */
+  /* CPX 偶尔不报错、也不给卷，直接回一个空壳（{"status":"error"} 或干脆 null）。
+     2026-11-28 实测：同一账号同一 IP，一分钟内能交替出现「49 份」和「空壳」。
+     所以失败要重试一次——不是网络问题，是上游抽风，重试就能拿到货。
+     超时（abort）不重试：那已经把 5.5 秒预算花掉了，再等就是让用户干瞪眼。 */
+  const url = 'https://live-api.cpx-research.com/api/get-surveys.php?' + qs.join('&');
+  let rawText = '';
+
+  async function pullOnce() {
     const ac = new AbortController();
     const timer = setTimeout(function () { ac.abort(); }, 5500);
     try {
-      const r = await fetch('https://live-api.cpx-research.com/api/get-surveys.php?' + qs.join('&'), {
-        headers: { Accept: 'application/json' },
-        signal: ac.signal
-      });
+      const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: ac.signal });
       const text = await r.text();
+      rawText = text;
       if (!r.ok) {
         console.error('cpx surveys upstream:', r.status, text.slice(0, 160));
-        return empty('upstream_error', 'http ' + r.status);
+        return { err: 'http ' + r.status, retry: r.status === 429 || r.status >= 500 };
       }
+      let j = null;
       try {
-        payload = JSON.parse(text);
+        j = JSON.parse(text);
       } catch (e) {
         console.error('cpx surveys bad json:', text.slice(0, 160));
-        return empty('upstream_error', 'bad json');
+        return { err: 'bad json', retry: true };
       }
+      if (!j || j.status !== 'success') {
+        console.error('cpx surveys status:', j && j.status, String(text).slice(0, 120));
+        return { err: 'status=' + String((j && j.status) || '-'), retry: true };
+      }
+      return { payload: j };
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      console.error('cpx surveys fetch failed:', msg.slice(0, 160));
+      return { err: /abort/i.test(msg) ? 'timeout' : msg.slice(0, 60), retry: false };
     } finally {
       clearTimeout(timer);
     }
-  } catch (e) {
-    const msg = String((e && e.message) || e);
-    console.error('cpx surveys fetch failed:', msg.slice(0, 160));
-    return empty('upstream_error', /abort/i.test(msg) ? 'timeout' : msg.slice(0, 60));
   }
 
-  if (!payload || payload.status !== 'success') {
-    console.error('cpx surveys status:', payload && payload.status);
-    return empty('upstream_error', String((payload && (payload.status || payload.error)) || 'no payload'));
+  let out = await pullOnce();
+  if (!out.payload && out.retry) {
+    await new Promise(function (res) { setTimeout(res, 350); });
+    out = await pullOnce();
   }
+  if (!out.payload) {
+    return empty('upstream_error', out.err + ' | ' + String(rawText).slice(0, 60));
+  }
+
+  const payload = out.payload;
 
   const list = Array.isArray(payload.surveys) ? payload.surveys : [];
   const items = [];
