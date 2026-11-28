@@ -95,6 +95,7 @@
       status: w.status,
       phase: PHASE.wd[w.status] || 'pending',
       note: w.reviewNote || '',
+      qr: w.qr || '',
       code: ''
     };
   }
@@ -247,6 +248,16 @@
         readonly: true,
         hint: '只读，选中即可复制；打款前核对姓名与账号一致'
       });
+
+      /* 用户传了收款码就摆出来，手机扫一下就能转，不用再敲账号 */
+      if (r.qr) {
+        fields.push({
+          name: 'qrview',
+          label: '收款码',
+          type: 'photo',
+          value: r.qr
+        });
+      }
     }
 
     if (deliver) {

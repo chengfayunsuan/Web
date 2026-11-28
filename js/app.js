@@ -1039,7 +1039,15 @@
               { value: 'payoneer', label: 'Payoneer' }
             ]
           },
-          { name: 'account', label: T('收款账号','Payout account'), placeholder: T('与实名一致的账号或绑定手机号','Account or phone matching your verified identity') }
+          { name: 'account', label: T('收款账号','Payout account'), placeholder: T('与实名一致的账号或绑定手机号','Account or phone matching your verified identity') },
+          {
+            name: 'qr',
+            label: T('收款码图片（可选）', 'Payment QR code (optional)'),
+            type: 'image',
+            maxw: 720,
+            hint: T('传一张支付宝/微信收款码截图。审核时直接扫码打款，比手打账号快，也不容易输错。',
+              'Upload a screenshot of your Alipay / WeChat receive-code. We scan it when paying out.')
+          }
         ],
         submitText: T('提交申请','Submit'),
         busyText: T('提交中…','Submitting…'),
@@ -1063,7 +1071,9 @@
           }
           api.setBusy(true);
 
-          postJSON('/api/withdraw', { amount: amount, channel: v.channel, account: v.account })
+          postJSON('/api/withdraw', {
+            amount: amount, channel: v.channel, account: v.account, qr: v.qr || ''
+          })
             .then(function (r) {
               if (r.body && r.body.ok) {
                 api.close();

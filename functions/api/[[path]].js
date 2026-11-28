@@ -3830,6 +3830,12 @@ async function withdrawApply(request, env) {
   const channel = String(body.channel || 'alipay');
   const account = String(body.account || '').trim().slice(0, 80);
 
+  /* 收款码图片：前端用 canvas 压到 720px 宽的 JPEG 再转 dataURL，
+     这里只认 image/* 的 base64 并卡长度，防止有人往库里塞几 MB 字符串。 */
+  const qrRaw = String(body.qr || '').trim();
+  const qrOk = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(qrRaw) && qrRaw.length <= 400000;
+  const qr = qrOk ? qrRaw : '';
+
   if (!isFinite(amount) || amount <= 0) return json({ ok: false, error: 'bad_amount' }, 400);
   if (WITHDRAW_CHANNELS.indexOf(channel) < 0) return json({ ok: false, error: 'bad_channel' }, 400);
   if (account.length < 4) return json({ ok: false, error: 'account_required' }, 400);
@@ -3857,8 +3863,8 @@ async function withdrawApply(request, env) {
       `UPDATE users SET fc_units = ?, fc_frozen = fc_frozen + ?, updated_at = datetime('now','+8 hours') WHERE id = ?`
     ).bind(next, units, user.id),
     env.DB.prepare(
-      `INSERT INTO withdrawals (uid, amount, channel, account, status) VALUES (?, ?, ?, ?, 'pending')`
-    ).bind(user.id, units, channel, account),
+      `INSERT INTO withdrawals (uid, amount, channel, account, qr, status) VALUES (?, ?, ?, ?, ?, 'pending')`
+    ).bind(user.id, units, channel, account, qr),
     env.DB.prepare(
       `INSERT INTO fc_ledger (uid, delta, balance, kind, ref, memo) VALUES (?, ?, ?, 'withdraw_lock', ?, ?)`
     ).bind(user.id, -units, next, ref, '提现申请 · ' + (CHANNEL_TEXT[channel] || channel))
@@ -5577,7 +5583,7 @@ async function adminWithdrawals(request, env, url) {
   const filtered = ['pending', 'approved', 'paid', 'rejected'].indexOf(status) >= 0;
 
   const rows = await env.DB.prepare(
-    `SELECT w.id, w.uid, w.amount, w.channel, w.account, w.status,
+    `SELECT w.id, w.uid, w.amount, w.channel, w.account, w.qr, w.status,
             w.created_at, w.reviewed_at, w.review_note, u.username,
             (SELECT COUNT(*) FROM risk_events r
               WHERE r.uid = w.uid AND r.at >= datetime('now','+8 hours','-30 days')) AS risk_n,
@@ -5602,6 +5608,8 @@ async function adminWithdrawals(request, env, url) {
       amount: formatFc(r.amount),
       channel: r.channel,
       account: r.account,
+      /* 收款码图片（dataURL）。没有就是空串，前端按有没有决定显不显示 */
+      qr: r.qr || '',
       status: r.status,
       createdAt: toIso(r.created_at),
       reviewedAt: toIso(r.reviewed_at),

@@ -659,6 +659,32 @@
     setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, 180);
   }
 
+  /* 图片压到指定宽度再转 dataURL。
+     收款码原图动辄一两兆，直接塞库不合适；先铺白底再画，
+     因为 PNG 的透明区转 JPEG 会变成黑块。 */
+  function shrinkImage(file, maxW, done) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var w = img.naturalWidth || maxW;
+      var h = img.naturalHeight || maxW;
+      var scale = Math.min(1, maxW / w);
+      var cw = Math.max(1, Math.round(w * scale));
+      var ch = Math.max(1, Math.round(h * scale));
+      var cv = document.createElement('canvas');
+      cv.width = cw;
+      cv.height = ch;
+      var ctx = cv.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      done(cv.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); };
+    img.src = url;
+  }
+
   function buildField(f) {
     var wrap = document.createElement('label');
     wrap.className = 'mo__f';
@@ -681,6 +707,67 @@
         if (String(o.value) === String(f.value)) op.selected = true;
         input.appendChild(op);
       });
+    } else if (f.type === 'image') {
+      /* 选图 → 压到 f.maxw 宽 → base64 写进隐藏字段，随表单一起提交。
+         收款码这种小图不用单开上传接口。 */
+      var box = document.createElement('div');
+      box.className = 'mo__img';
+
+      var pick = document.createElement('input');
+      pick.type = 'file';
+      pick.accept = 'image/*';
+      pick.className = 'mo__file';
+
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = f.name || '';
+      input.value = f.value || '';
+
+      var prev = document.createElement('img');
+      prev.className = 'mo__prev';
+      prev.alt = '';
+      if (f.value) { prev.src = f.value; prev.hidden = false; } else { prev.hidden = true; }
+
+      pick.addEventListener('change', function () {
+        var file = pick.files && pick.files[0];
+        if (!file || !/^image\//.test(file.type)) return;
+        shrinkImage(file, f.maxw || 720, function (dataUrl) {
+          input.value = dataUrl;
+          prev.src = dataUrl;
+          prev.hidden = false;
+        });
+      });
+
+      box.appendChild(pick);
+      box.appendChild(prev);
+      box.appendChild(input);
+      wrap.appendChild(box);
+
+      if (f.hint) {
+        var h0 = document.createElement('span');
+        h0.className = 'mo__hint';
+        h0.textContent = f.hint;
+        wrap.appendChild(h0);
+      }
+      return wrap;
+    } else if (f.type === 'photo') {
+      /* 只读展示一张图：审核时把用户传的收款码摆出来，能点开看原图 */
+      var fig = document.createElement('div');
+      fig.className = 'mo__photo';
+
+      var pic = document.createElement('img');
+      pic.src = f.value || '';
+      pic.alt = f.label || '';
+      fig.appendChild(pic);
+
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = f.name || '';
+      input.value = f.value || '';
+      fig.appendChild(input);
+
+      wrap.appendChild(fig);
+      return wrap;
     } else {
       input = document.createElement('input');
       input.type = f.type || 'text';

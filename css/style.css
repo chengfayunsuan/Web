@@ -1274,6 +1274,47 @@ html[lang="en"] .hero__title .x {
 
 .mo__hint { font-size: 11px; line-height: 1.5; color: var(--gray); }
 
+/* 图片字段：选图 + 预览（提现填收款码用） */
+.mo__img {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mo__file {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.mo__file::file-selector-button {
+  margin-right: 10px;
+  padding: 7px 12px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mo__prev {
+  display: block;
+  width: 100%;
+  max-width: 176px;
+  border: 2px solid var(--ink);
+}
+
+/* 只读展示图（后台审核看收款码） */
+.mo__photo img {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  border: 2px solid var(--ink);
+  background: #fff;
+}
+
 .mo__msg {
   margin: 12px 0 0;
   font-size: 12.5px;
