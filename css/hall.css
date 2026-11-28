@@ -607,3 +607,12 @@
   .pg-filter__btn { width: 100%; justify-content: space-between; }
   .pg-filter__pop { right: 0; }
 }
+
+/* 时长后面的绿勾：这份问卷不用先答资格题，点开就是问卷本体。
+   只有 CPX 给这个信息（type != need_qualification），别家不显示。 */
+.svc__ok {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: #2F9E63;
+}

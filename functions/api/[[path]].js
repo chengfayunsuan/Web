@@ -2283,6 +2283,11 @@ async function cpxSurveyList(request, env) {
       price: formatFc(Math.round(Math.abs(xd) * FC_SCALE)),
       durationMin: loi,
       stars: Math.round(Number(s.statistics_rating_avg) || 0),
+      /* type=need_qualification 表示进卷前还要答一轮资格问题；
+         其余是「点开就是问卷本体」，CPX 自家墙上用时长后面那个绿勾标的就是它。
+         webcam=1 是要求开摄像头的问卷，单独带出来备用。 */
+      direct: String(s.type || '') !== 'need_qualification',
+      webcam: Number(s.webcam) === 1,
       /* CPX 没有 incidence 字段，用 conversion_rate（百分比）顶上，前端发生率排序要用 */
       incidence: inc,
       grade: '',

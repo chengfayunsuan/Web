@@ -136,8 +136,12 @@ GET https://live-api.cpx-research.com/api/get-surveys.php
 | `entry` | string | 上游 `href`，**原样透传，不要重编码、不要拼参数** |
 | `featured` | boolean | `top === 1` 时为 `true` |
 | `createdAt` | string | 用 `String(99999999 - i)`，i 是上游数组下标。前端「时间·最新」靠它排 |
+| `direct` | boolean | 上游 `type !== 'need_qualification'` 时为 `true`。为真表示点开就是问卷本体，不用先答一轮资格题，前端在时长后面点一个绿勾 |
+| `webcam` | boolean | 上游 `webcam === 1`，该问卷要开摄像头。目前只带出来备用，前端未展示 |
 
 **不要新增字段、不要改字段名。** 前端 `js/app.js` 是按这套写死的（渲染在 200–390 行，排序在 470–490 行）。
+
+> `direct` 与 `webcam` 是 2026-11-28 加的，字段由主站侧直接从 CPX 上游 `get-surveys` 取，协作者不需要也不应该自己造这两个值。
 
 ### 4.1 `href` 的三个禁区
 

@@ -295,6 +295,16 @@
         dt.className = 'svc__prov-time';
         dt.textContent = T(s.durationMin + ' 分钟', s.durationMin + ' min');
         prov.appendChild(dt);
+
+        /* 不用先答资格题、点开就是问卷本体：跟 CPX 自家墙一样在时长后点个勾。
+           只有 CPX 给 direct 字段，其它问卷商不会出现这个标记。 */
+        if (s.direct === true) {
+          var ok = document.createElement('span');
+          ok.className = 'svc__ok';
+          ok.title = T('不用先答资格题，点开就是问卷', 'No screening questions');
+          ok.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M2.6 8.6l3.3 3.3 7-7" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>';
+          prov.appendChild(ok);
+        }
       }
 
       if (s.joined) {
