@@ -5355,6 +5355,12 @@ async function adminOverview(env) {
        FROM withdrawals WHERE status = 'pending'`
   ).first();
 
+  /* 未处理工单数：公告小建议框（type=feedback）也落在这里，
+     后台导航和首页要有角标，不然用户发了建议没人看得见。 */
+  const tk = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM tickets WHERE status = 'open'`
+  ).first();
+
   /* 后台的「最近流水」要的是完整账目：只把测试性质的记录剔掉
      （模拟/实验卷、demo- 与 selftest 单、cf 开头的自造 TR 单），
      其余全留 —— 包括被筛除时给的那笔加分（筛选补偿），那是真实发生的钱。
@@ -5386,6 +5392,7 @@ async function adminOverview(env) {
       frozen: formatFc(money ? money.frozen : 0)
     },
     withdrawals: { pending: wd ? wd.n : 0, amount: formatFc(wd ? wd.amount : 0) },
+    tickets: { open: tk ? tk.n : 0 },
     recent: (recent.results || []).map((r) => ({
       at: toIso(r.created_at),
       uid: r.uid,

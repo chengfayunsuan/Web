@@ -135,6 +135,7 @@
     users: { total: 42, active: 39, frozen: 2, banned: 1, today: 3 },
     money: { available: '3421.65', frozen: '96.5' },
     withdrawals: { pending: 2, amount: '46.5' },
+    tickets: { open: 3 },
     recent: [
       { at: '2026-11-16T12:20:00Z', uid: 2, username: '林一舟', kind: 'survey_reward', delta: '12', memo: '城市通勤调研' },
       { at: '2026-11-16T10:02:00Z', uid: 23, username: '许临', kind: 'admin_adjust', delta: '3', memo: '问卷补发差额' },
@@ -203,6 +204,40 @@
       $('stActive').textContent = d.users.active;
       $('stFrozenN').textContent = d.users.frozen;
       $('stBanned').textContent = d.users.banned;
+
+      /* 未处理工单角标：公告里的小建议也进工单，不给角标等于没人看见 */
+      var openTk = d.tickets ? Number(d.tickets.open) || 0 : 0;
+      var tkTxt = openTk > 99 ? '99+' : String(openTk);
+
+      var dockTk = document.querySelector('.dock__i[href="/admin/tickets"]');
+      if (dockTk) {
+        var bd = dockTk.querySelector('.dock__badge');
+        if (openTk > 0) {
+          if (!bd) {
+            bd = document.createElement('span');
+            bd.className = 'dock__badge';
+            dockTk.appendChild(bd);
+          }
+          bd.textContent = tkTxt;
+        } else if (bd) {
+          bd.parentNode.removeChild(bd);
+        }
+      }
+
+      var cardTk = document.querySelector('.adm-q[href="/admin/tickets"]');
+      if (cardTk) {
+        var cb = cardTk.querySelector('.adm-q__badge');
+        if (openTk > 0) {
+          if (!cb) {
+            cb = document.createElement('em');
+            cb.className = 'adm-q__badge';
+            cardTk.appendChild(cb);
+          }
+          cb.textContent = tkTxt;
+        } else if (cb) {
+          cb.parentNode.removeChild(cb);
+        }
+      }
 
       var box = $('ovLedger');
       box.textContent = '';

@@ -920,3 +920,41 @@ html:not([data-theme]) body[data-accent="blue"] {
 @media (max-width: 900px) {
   .adm-tr--nt { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* 未处理工单角标（导航与快捷卡共用） */
+.dock__i { position: relative; }
+
+.dock__badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  min-width: 18px;
+  padding: 1px 5px;
+  background: var(--red);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 9px;
+}
+
+.dock__i.is-on .dock__badge { background: var(--ink); }
+
+.adm-q { position: relative; }
+
+.adm-q__badge {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  min-width: 22px;
+  padding: 2px 6px;
+  background: var(--red);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 10px;
+}
