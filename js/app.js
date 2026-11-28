@@ -471,6 +471,8 @@
     function skelOn(on) {
       if (!skel) return;
       skel.hidden = !on;
+      /* .sv-grid 自带 display:grid，会盖掉 [hidden]，这里直接压一层 */
+      skel.style.display = on ? '' : 'none';
       if (on && count) count.textContent = '…';
     }
     var provBtn = $('provBtn');

@@ -622,6 +622,10 @@
    49 张卡同时插进来，整页高度从 200 涨到两千多，用户看到的就是「跳版」。
    这里先摆同样尺寸的空卡片，撑住高度，数据到了原地替换。 */
 
+/* 作者样式里的 display:grid 会盖掉 UA 的 [hidden]{display:none}，
+   占位骨架就永远藏不住（2026-11-28 的 bug）。显式关掉。 */
+.sv-grid[hidden] { display: none; }
+
 .svc.is-skel {
   pointer-events: none;
   background: #F8F5EC;
