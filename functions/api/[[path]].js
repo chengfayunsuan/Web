@@ -3191,7 +3191,8 @@ async function fxRate(env) {
  *       · 问卷墙单子必须在 mo_task 里有对应任务（同 uid 同 transaction_id），
  *         payout_usd > 0、USD 计价；
  *       · demo- 开头的（Moonetix 模拟单）、cpx-selftest 开头的（自测单）、
- *         event_id 以 cf 开头的（2026-11 手工造的 TR demo 单）一律不上；
+ *         transaction_id 命中的已知假单（2026-11 手工造的 TR demo 单、
+ *         OU 调试单）一律不上；
  *       · Opinion Universe 的接入调试单（offer_name 为空或是 {eventname} 这种模板残留）不上；
  *       · 站内问卷只放真实问卷，标题里带「模拟」「实验」的测试卷不上。
  *     payout_usd 是服务商实际付给我们的钱，这是唯一可靠的「真实完成」证据
@@ -3223,7 +3224,10 @@ async function feedRecent(request, env) {
             AND UPPER(m.currency) IN ('USD', 'XB', 'XD')
             AND m.transaction_id NOT LIKE 'demo%'
             AND m.transaction_id NOT LIKE '%selftest%'
-            AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
+            /* 已知假单钉死交易号：不用 event_id 前缀判断——
+               那个 cf 前缀是当初手工造测试单时自己编的，
+               万一服务商真实卷也用 cf 开头，真单会被静默吞掉。 */
+            AND COALESCE(m.transaction_id, '') NOT IN ('57b76e2c-5022-4a07-96d3-9301102e32b9','6f5d7f55559bc508b27be4416','020526c19328f7fc533590389')
             AND (m.provider <> 'opinionuniverse'
                  OR (m.offer_name <> ''
                      AND m.offer_name NOT LIKE '%{%'
@@ -3251,7 +3255,10 @@ async function feedRecent(request, env) {
             AND UPPER(m.currency) IN ('USD', 'XB', 'XD')
             AND m.transaction_id NOT LIKE 'demo%'
             AND m.transaction_id NOT LIKE '%selftest%'
-            AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
+            /* 已知假单钉死交易号：不用 event_id 前缀判断——
+               那个 cf 前缀是当初手工造测试单时自己编的，
+               万一服务商真实卷也用 cf 开头，真单会被静默吞掉。 */
+            AND COALESCE(m.transaction_id, '') NOT IN ('57b76e2c-5022-4a07-96d3-9301102e32b9','6f5d7f55559bc508b27be4416','020526c19328f7fc533590389')
             AND (m.provider <> 'opinionuniverse'
                  OR (m.offer_name <> ''
                      AND m.offer_name NOT LIKE '%{%'
@@ -5381,7 +5388,7 @@ async function adminOverview(env) {
   ).first();
 
   /* 后台的「最近流水」要的是完整账目：只把测试性质的记录剔掉
-     （模拟/实验卷、demo- 与 selftest 单、cf 开头的自造 TR 单），
+     （模拟/实验卷、demo- 与 selftest 单、已知的假交易号），
      其余全留 —— 包括被筛除时给的那笔加分（筛选补偿），那是真实发生的钱。
      和首页展览不同：展览要好看，后台要可对账。 */
   const recent = await env.DB.prepare(
@@ -5393,7 +5400,7 @@ async function adminOverview(env) {
         AND l.memo NOT LIKE '%实验%'
         AND COALESCE(m.transaction_id, '') NOT LIKE 'demo%'
         AND COALESCE(m.transaction_id, '') NOT LIKE '%selftest%'
-        AND COALESCE(m.event_id, '') NOT LIKE 'cf%'
+        AND COALESCE(m.transaction_id, '') NOT IN ('57b76e2c-5022-4a07-96d3-9301102e32b9','6f5d7f55559bc508b27be4416','020526c19328f7fc533590389')
       ORDER BY l.id DESC LIMIT 50`
   ).all();
 
