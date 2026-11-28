@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>提现审核 · Chengfa后台</title>
-<meta name="description" content="Chengfa运营后台：提现审核。">
+<title>审核中心 · Chengfa后台</title>
+<meta name="description" content="Chengfa运营后台：提现审核与兑换订单合并处理。">
 <meta name="theme-color" content="#1D52E2">
 <meta name="robots" content="noindex">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/style.css?v=17">
 <link rel="stylesheet" href="/css/home.css?v=18">
-<link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/admin.css?v=18">
+<link rel="stylesheet" href="/css/page.css?v=12">
+<link rel="stylesheet" href="/css/admin.css?v=20">
 <script src="/js/config.js?v=12"></script>
-<script src="/js/core.js?v=43"></script>
+<script src="/js/core.js?v=44"></script>
 </head>
-<body data-page="admin-withdrawals" data-accent="blue">
+<body data-page="admin-review" data-accent="blue">
 
 <header class="nav">
   <div class="wrap nav__in">
@@ -44,32 +44,29 @@
     <a class="dock__i" href="/admin/users">
       <span class="dock__n">02</span><span class="dock__t">用户管理</span>
     </a>
-    <a class="dock__i is-on" href="/admin/withdrawals" aria-current="page">
-      <span class="dock__n">03</span><span class="dock__t">提现审核</span>
-    </a>
-    <a class="dock__i" href="/admin/orders">
-      <span class="dock__n">04</span><span class="dock__t">兑换订单</span>
+    <a class="dock__i is-on" href="/admin/review" aria-current="page">
+      <span class="dock__n">03</span><span class="dock__t">审核</span>
     </a>
     <a class="dock__i" href="/admin/tickets">
-      <span class="dock__n">05</span><span class="dock__t">工单</span>
+      <span class="dock__n">04</span><span class="dock__t">工单</span>
     </a>
     <a class="dock__i" href="/admin/surveys">
-      <span class="dock__n">06</span><span class="dock__t">问卷管理</span>
+      <span class="dock__n">05</span><span class="dock__t">问卷管理</span>
     </a>
     <a class="dock__i" href="/admin/items">
-      <span class="dock__n">07</span><span class="dock__t">商品兑换</span>
+      <span class="dock__n">06</span><span class="dock__t">商品兑换</span>
     </a>
     <a class="dock__i" href="/admin/messages">
-      <span class="dock__n">08</span><span class="dock__t">公告</span>
+      <span class="dock__n">07</span><span class="dock__t">公告</span>
     </a>
     <a class="dock__i" href="/admin/moonetix">
-      <span class="dock__n">09</span><span class="dock__t">广告墙</span>
+      <span class="dock__n">08</span><span class="dock__t">广告墙</span>
     </a>
     <a class="dock__i" href="/admin/traffic">
-      <span class="dock__n">10</span><span class="dock__t">流量</span>
+      <span class="dock__n">09</span><span class="dock__t">流量</span>
     </a>
     <a class="dock__i" href="/admin/theoremreach">
-      <span class="dock__n">11</span><span class="dock__t">问卷墙</span>
+      <span class="dock__n">10</span><span class="dock__t">问卷墙</span>
     </a>
   </div>
 </nav>
@@ -81,20 +78,20 @@
       <div class="face__in">
         <div class="face__id">
           <div class="face__meta">
-            <span class="face__uid">ADMIN / 提现审核</span>
+            <span class="face__uid">ADMIN / 审核</span>
             <span class="adm-badge">资金</span>
           </div>
-          <h1 class="face__name">提现审核</h1>
-          <p class="face__sub">通过打款 · 驳回退回 · 资金自动结算</p>
+          <h1 class="face__name">审核中心</h1>
+          <p class="face__sub">提现打款 · 兑换发货 · 退款作废</p>
           <div class="face__foot">
-            <p class="adm-lead">通过打款划走冻结额度，驳回退回可用余额。每笔处置都写入流水，可追溯。</p>
+            <p class="adm-lead">用户能提交到你这里的只有两类：提现申请、兑换订单。都在这页处理。点通过前都会弹窗，把收款账号或兑换码摆到眼前，确认了才动钱。</p>
           </div>
         </div>
 
         <div class="face__bal">
-          <div class="face__bal-k">PENDING / 待审笔数</div>
-          <div class="face__bal-n" id="wdPending">—</div>
-          <div class="face__bal-f">笔申请待处理</div>
+          <div class="face__bal-k">PENDING / 待办总数</div>
+          <div class="face__bal-n" id="rvPending">—</div>
+          <div class="face__bal-f">提现 <b id="wdPending">—</b> 笔 · 订单 <b id="ordPending">0</b> 单</div>
           <div class="face__acts">
             <a class="btn btn--ghost" href="/admin">返回概览</a>
           </div>
@@ -105,7 +102,14 @@
 
   <section class="adm-sec adm-sec--last">
     <div class="wrap">
-      <div class="adm-panel">
+
+      <div class="pg-tabs rv-tabs">
+        <button class="pg-tab is-on" type="button" data-rv="wd">提现审核<em class="rv-n" id="rvWdN" hidden>0</em></button>
+        <button class="pg-tab" type="button" data-rv="ord">兑换订单<em class="rv-n" id="rvOrdN" hidden>0</em></button>
+      </div>
+
+      <!-- ============ 提现 ============ -->
+      <div class="adm-panel" id="rvWdPanel">
         <div class="adm-tools">
           <div class="pg-tabs">
             <button class="pg-tab is-on" type="button" data-wd="pending">待审</button>
@@ -122,6 +126,29 @@
         </div>
         <p class="adm-empty" id="wdEmpty" hidden>当前筛选下没有提现申请。</p>
       </div>
+
+      <!-- ============ 兑换订单 ============ -->
+      <div class="adm-panel" id="rvOrdPanel" hidden>
+        <div class="adm-h">
+          <span class="adm-h__t">全部订单</span>
+          <div class="adm-filters" id="ordFilters">
+            <button class="adm-f is-on" type="button" data-s="">全部</button>
+            <button class="adm-f" type="button" data-s="pending">待发货</button>
+            <button class="adm-f" type="button" data-s="paid">已完成</button>
+            <button class="adm-f" type="button" data-s="refunded">已退款</button>
+          </div>
+        </div>
+
+        <div class="adm-list">
+          <div class="adm-tr adm-tr--ord adm-head">
+            <span>单号</span><span>用户 / 商品</span><span>金额</span><span>状态</span><span>时间</span><span>操作</span>
+          </div>
+          <div id="ordList"></div>
+        </div>
+        <p class="adm-empty" id="ordEmpty" hidden>还没有订单。</p>
+        <p class="adm-tools__r" style="margin:14px 0 0">共 <span id="ordTotal">0</span> 单。兑换码与订阅类订单初始为「待审核」，确认发货时才取码并站内通知用户。</p>
+      </div>
+
     </div>
   </section>
 
@@ -139,6 +166,8 @@
   </div>
 </footer>
 
-<script src="/js/admin.js?v=13" defer></script>
+<script src="/js/admin.js?v=14" defer></script>
+<script src="/js/admin-shop.js?v=5" defer></script>
+<script src="/js/admin-review.js?v=1" defer></script>
 </body>
 </html>

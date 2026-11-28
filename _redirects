@@ -16,11 +16,12 @@
 /support  /pages/support  200
 /admin             /pages/admin             200
 /admin/users       /pages/admin-users       200
-/admin/withdrawals /pages/admin-withdrawals 200
+/admin/review      /pages/admin-review     200
+/admin/withdrawals /admin/review          302
 /admin/tickets     /pages/admin-tickets     200
 /admin/surveys     /pages/admin-surveys     200
 /messages /pages/messages 200
-/admin/orders   /pages/admin-orders   200
+/admin/orders      /admin/review          302
 /admin/items    /pages/admin-items    200
 /admin/messages /pages/admin-messages 200
 /admin/moonetix /pages/admin-moonetix 200

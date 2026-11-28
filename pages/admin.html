@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="/css/style.css?v=17">
 <link rel="stylesheet" href="/css/home.css?v=18">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/admin.css?v=19">
+<link rel="stylesheet" href="/css/admin.css?v=20">
 <script src="/js/config.js?v=12"></script>
-<script src="/js/core.js?v=43"></script>
+<script src="/js/core.js?v=44"></script>
 </head>
 <body data-page="admin" data-accent="blue">
 
@@ -46,32 +46,29 @@
     <a class="dock__i" href="/admin/users">
       <span class="dock__n">02</span><span class="dock__t">用户管理</span>
     </a>
-    <a class="dock__i" href="/admin/withdrawals">
-      <span class="dock__n">03</span><span class="dock__t">提现审核</span>
-    </a>
-    <a class="dock__i" href="/admin/orders">
-      <span class="dock__n">04</span><span class="dock__t">兑换订单</span>
+    <a class="dock__i" href="/admin/review">
+      <span class="dock__n">03</span><span class="dock__t">审核</span>
     </a>
     <a class="dock__i" href="/admin/tickets">
-      <span class="dock__n">05</span><span class="dock__t">工单</span>
+      <span class="dock__n">04</span><span class="dock__t">工单</span>
     </a>
     <a class="dock__i" href="/admin/surveys">
-      <span class="dock__n">06</span><span class="dock__t">问卷管理</span>
+      <span class="dock__n">05</span><span class="dock__t">问卷管理</span>
     </a>
     <a class="dock__i" href="/admin/items">
-      <span class="dock__n">07</span><span class="dock__t">商品兑换</span>
+      <span class="dock__n">06</span><span class="dock__t">商品兑换</span>
     </a>
     <a class="dock__i" href="/admin/messages">
-      <span class="dock__n">08</span><span class="dock__t">公告</span>
+      <span class="dock__n">07</span><span class="dock__t">公告</span>
     </a>
     <a class="dock__i" href="/admin/moonetix">
-      <span class="dock__n">09</span><span class="dock__t">广告墙</span>
+      <span class="dock__n">08</span><span class="dock__t">广告墙</span>
     </a>
     <a class="dock__i" href="/admin/traffic">
-      <span class="dock__n">10</span><span class="dock__t">流量</span>
+      <span class="dock__n">09</span><span class="dock__t">流量</span>
     </a>
     <a class="dock__i" href="/admin/theoremreach">
-      <span class="dock__n">11</span><span class="dock__t">问卷墙</span>
+      <span class="dock__n">10</span><span class="dock__t">问卷墙</span>
     </a>
   </div>
 </nav>
@@ -105,7 +102,7 @@
 
           <div class="face__acts">
             <a class="btn btn--red" href="/admin/users">用户管理</a>
-            <a class="btn btn--ghost" href="/admin/withdrawals">提现审核</a>
+            <a class="btn btn--ghost" href="/admin/review">审核中心</a>
           </div>
         </div>
       </div>
@@ -147,10 +144,10 @@
           <p class="adm-q__t">用户管理</p>
           <p class="adm-q__d">查找账户、调整法币、冻结与封禁、修改角色。</p>
         </a>
-        <a class="adm-q" href="/admin/withdrawals">
+        <a class="adm-q" href="/admin/review">
           <span class="adm-q__n">02</span>
-          <p class="adm-q__t">提现审核</p>
-          <p class="adm-q__d">通过打款或驳回退回，资金自动回到账户。</p>
+          <p class="adm-q__t">审核中心</p>
+          <p class="adm-q__d">提现打款与兑换发货在同一页处理，确认前弹窗核对账号与兑换码。</p>
         </a>
         <a class="adm-q" href="/admin/surveys">
           <span class="adm-q__n">03</span>
@@ -204,6 +201,6 @@
   </div>
 </footer>
 
-<script src="/js/admin.js?v=13" defer></script>
+<script src="/js/admin.js?v=14" defer></script>
 </body>
 </html>

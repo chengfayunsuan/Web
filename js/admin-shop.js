@@ -1,6 +1,6 @@
 /* ============================================================
    Chengfa · 后台商品、卡密与订单
-   同一个脚本服务 /admin/items 与 /admin/orders 两个页面。
+   同一个脚本服务 /admin/items 与 /admin/review（订单部分）。
    ============================================================ */
 (function () {
   'use strict';
@@ -590,6 +590,6 @@
     if ($('navBal') && me.fc) setAmt($('navBal'), me.fc);
 
     if (page === 'admin-items') initItems();
-    else if (page === 'admin-orders') initOrders();
+    else if (page === 'admin-orders' || page === 'admin-review') initOrders();
   });
 })();

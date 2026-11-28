@@ -266,15 +266,41 @@ html:not([data-theme]) body[data-accent="blue"] {
    放不下就在容器里横向滚，不再压缩到按钮换行。 */
 .adm-tr--wd {
   grid-template-columns:
-    112px minmax(96px, .8fr) 76px minmax(140px, 1.3fr)
-    116px 56px minmax(110px, 1fr) 232px;
+    104px minmax(92px, .8fr) 72px minmax(136px, 1.3fr)
+    112px 52px minmax(104px, 1fr) 132px;
 }
 
 .adm-list--wd { overflow-x: auto; }
 
-/* 两个按钮并排要 230 上下，容器不够就压缩了列宽让它们竖排。
-   这里禁止换行，宁可整表横向滚。 */
-.adm-list--wd .adm-acts { flex-wrap: nowrap; }
+/* 操作列宽 132：两个按钮并排要 230 上下，窄桌面会把整表撑出横向滚动，
+   所以桌面竖排；手机端栅格变成两列，横向并排放得下，改回一行。 */
+.adm-list--wd .adm-acts {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+/* 竖排时要能被列宽压住，否则「驳回退回」会把按钮撑出边界 */
+.adm-list--wd .adm-acts .btn {
+  width: 100%;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+@media (max-width: 640px) {
+  .adm-list--wd .adm-acts {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  /* 手机上按钮回到按内容宽度，两个并排；
+     操作格横跨两列，否则被挤在 auto 窄列里会折成上下两行 */
+  .adm-list--wd .adm-acts { grid-column: 1 / -1; }
+  .adm-list--wd .adm-acts .btn { width: auto; }
+}
 
 /* 备注列：待审行是输入框，已处理行是文字。
    之前表头 7 个格、栅格只给了 6 列，操作列被挤到下一行——补成 7+1 列后对齐。 */
@@ -957,4 +983,45 @@ html:not([data-theme]) body[data-accent="blue"] {
   line-height: 16px;
   text-align: center;
   border-radius: 10px;
+}
+
+/* ============================================================
+   审核中心（/admin/review）
+   提现与兑换合并一页，一级标签 + 待办角标
+   ============================================================ */
+
+.rv-tabs { margin: 26px 0 22px; }
+
+.rv-tabs .pg-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  font-size: 13.5px;
+}
+
+.rv-n {
+  min-width: 18px;
+  padding: 1px 5px;
+  background: var(--red);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 10.5px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 9px;
+}
+
+.rv-tabs .pg-tab.is-on .rv-n {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.rv-n[hidden] { display: none; }
+
+@media (max-width: 520px) {
+  .rv-tabs { margin: 18px 0 16px; }
+  .rv-tabs .pg-tab { padding: 9px 14px; font-size: 12.5px; }
 }

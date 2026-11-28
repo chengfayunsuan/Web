@@ -205,14 +205,13 @@
   var NAV_ADMIN = [
     { k: '1', href: '/admin', t: T('后台概览','Overview') },
     { k: '2', href: '/admin/users', t: T('用户管理','Users') },
-    { k: '3', href: '/admin/withdrawals', t: T('提现审核','Withdrawals') },
-    { k: '4', href: '/admin/orders', t: T('兑换订单','Orders') },
-    { k: '5', href: '/admin/tickets', t: T('工单','Tickets') },
-    { k: '6', href: '/admin/surveys', t: T('问卷管理','Surveys') },
-    { k: '7', href: '/admin/items', t: T('商品兑换','Items') },
-    { k: '8', href: '/admin/messages', t: T('公告','Notices') },
-    { k: '9', href: '/admin/moonetix', t: T('广告墙','Offerwalls') },
-    { k: '0', href: '/admin/traffic', t: T('流量','Traffic') }
+    { k: '3', href: '/admin/review', t: T('审核','Review') },
+    { k: '4', href: '/admin/tickets', t: T('工单','Tickets') },
+    { k: '5', href: '/admin/surveys', t: T('问卷管理','Surveys') },
+    { k: '6', href: '/admin/items', t: T('商品兑换','Items') },
+    { k: '7', href: '/admin/messages', t: T('公告','Notices') },
+    { k: '8', href: '/admin/moonetix', t: T('广告墙','Offerwalls') },
+    { k: '9', href: '/admin/traffic', t: T('流量','Traffic') }
   ];
 
   /* 反引号键：数字键 1-9/0 已经排满了，它单独占一个「回首页」的位置。
@@ -403,10 +402,9 @@
     '/settings': { page: 'settings' },
     '/admin': { page: 'admin' },
     '/admin/users': { page: 'admin-users' },
-    '/admin/withdrawals': { page: 'admin-withdrawals' },
+    '/admin/review': { page: 'admin-review' },
     '/admin/tickets': { page: 'admin-tickets' },
     '/admin/surveys': { page: 'admin-surveys' },
-    '/admin/orders': { page: 'admin-orders' },
     '/admin/items': { page: 'admin-items' },
     '/admin/messages': { page: 'admin-messages' },
     '/admin/moonetix': { page: 'admin-moonetix' },

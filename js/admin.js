@@ -1,6 +1,6 @@
 /* ============================================================
    Chengfa · 运营后台逻辑
-   admin / admin-users / admin-withdrawals 三页共用。
+   admin / admin-users / admin-review（提现部分）三页共用。
    仅站长（owner）与管理员（admin）可用，其余跳回账户首页。
    ============================================================ */
 (function () {
@@ -1029,7 +1029,7 @@
     if (!isAdmin(me)) { location.replace('/home'); return; }
     if (page === 'admin') initOverview(me);
     else if (page === 'admin-users') initUsers(me);
-    else if (page === 'admin-withdrawals') initWithdrawals(me);
+    else if (page === 'admin-withdrawals' || page === 'admin-review') initWithdrawals(me);
     else if (page === 'admin-tickets') initTickets(me);
   });
 })();
