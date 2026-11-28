@@ -671,3 +671,9 @@
 @media (max-width: 560px) {
   .sk--pay { height: 40px; }
 }
+
+/* 手机上是一列：6 张占位会铺满一屏多，反而像压了一堆空块。
+   只留前 3 张，够撑住首屏高度就行。 */
+@media (max-width: 560px) {
+  #svSkel > .svc:nth-child(n+4) { display: none; }
+}
