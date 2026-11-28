@@ -616,3 +616,58 @@
   align-items: center;
   color: #2F9E63;
 }
+
+/* ---------- 加载占位 ----------
+   问卷列表要等 CPX/TR 上游 1~4 秒。以前这期间什么都不画，数据一回来
+   49 张卡同时插进来，整页高度从 200 涨到两千多，用户看到的就是「跳版」。
+   这里先摆同样尺寸的空卡片，撑住高度，数据到了原地替换。 */
+
+.svc.is-skel {
+  pointer-events: none;
+  background: #F8F5EC;
+  border-color: #DED7C6;
+}
+
+.sk {
+  display: block;
+  border-radius: 2px;
+  background: #E6DFCE;
+  animation: sk-pulse 1.15s ease-in-out infinite;
+}
+
+.sk--pay {
+  width: 46%;
+  height: 46px;
+  margin-bottom: 14px;
+}
+
+.sk--title {
+  width: 82%;
+  height: 14px;
+  margin-bottom: 10px;
+}
+
+.sk--row {
+  width: 62%;
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.sk--foot {
+  width: 100%;
+  height: 34px;
+  margin-top: auto;
+}
+
+@keyframes sk-pulse {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+}
+
+@media (max-width: 560px) {
+  .sk--pay { height: 40px; }
+}

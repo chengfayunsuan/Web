@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/css/style.css?v=18">
 <link rel="stylesheet" href="/css/home.css?v=18">
 <link rel="stylesheet" href="/css/page.css?v=11">
-<link rel="stylesheet" href="/css/hall.css?v=15">
+<link rel="stylesheet" href="/css/hall.css?v=16">
 <script src="/js/config.js?v=12"></script>
 <script src="/js/core.js?v=45"></script>
 </head>
@@ -168,6 +168,15 @@
         <span class="hl-sect__k">ALL SURVEYS</span>
         <h2 class="hl-sect__t">All surveys</h2>
       </div>
+      <!-- 加载占位：和真卡片同尺寸（min-height 200），数据回来前页面不塌陷 -->
+      <div class="sv-grid" id="svSkel" aria-hidden="true">
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      <div class="svc is-skel"><span class="sk sk--pay"></span><span class="sk sk--title"></span><span class="sk sk--row"></span><span class="sk sk--foot"></span></div>
+      </div>
       <div class="sv-grid" id="svList"></div>
       <p class="hl-note" id="hlFilterEmpty" hidden>No surveys from the selected providers right now.</p>
     </section>
@@ -224,7 +233,7 @@
   </div>
 </footer>
 
-<script src="/js/app.js?v=45" defer></script>
+<script src="/js/app.js?v=46" defer></script>
 <script src="/en/dict.js?v=8"></script>
 <script src="/js/i18n-en.js?v=6" defer></script>
   <script src="/js/build-notice.js?v=3" defer></script>

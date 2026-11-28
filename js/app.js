@@ -465,6 +465,14 @@
     var empty = document.querySelector('.pg-empty');
     var count = $('hallCount');
     var provFilter = $('provFilter');
+    /* 加载占位：问卷上游要 1~4 秒，这段空窗期先摆同尺寸空卡片撑住高度 */
+    var skel = $('svSkel');
+
+    function skelOn(on) {
+      if (!skel) return;
+      skel.hidden = !on;
+      if (on && count) count.textContent = '…';
+    }
     var provBtn = $('provBtn');
     var provPop = $('provPop');
     var provListEl = $('provList');
@@ -695,6 +703,7 @@
     }
 
     function afterLoad() {
+      skelOn(false);
       if (!all.length) {
         if (count) count.textContent = '0';
         if (provFilter) provFilter.hidden = true;
@@ -716,6 +725,7 @@
        英文页弹中文提示、按钮再跳回中文设置页，海外用户到这一步就全走了。
        IS_EN 在文件顶部定义，这里直接用。 */
     function needVerify() {
+      skelOn(false);
       document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
       if (count) count.textContent = '0';
       if (!empty) return;
@@ -764,6 +774,7 @@
     }
 
     function loadAll() {
+      skelOn(true);
       Promise.all([pullWall('/api/surveys/tr'), pullWall('/api/surveys/cpx')]).then(function (res) {
         var items = [];
         var verify = false;
@@ -791,6 +802,7 @@
     }
 
     function wallDown() {
+      skelOn(false);
       document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
       if (count) count.textContent = '0';
       if (!empty) return;
@@ -826,6 +838,7 @@
       hlRefresh.addEventListener('click', function () {
         hlRefresh.disabled = true;
         all = [];
+        skelOn(true);
         loadAll();
         setTimeout(function () { hlRefresh.disabled = false; }, 1500);
       });
