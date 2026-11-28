@@ -2225,13 +2225,19 @@ async function cpxSurveyList(request, env) {
   /* 文档标 Optional，但设备适配靠它，有就带上 */
   if (ua) qs.push('user_agent=' + encodeURIComponent(ua));
 
-  const empty = function (note) { return json({ ok: true, items: [], note: note }); };
+  /* detail 给前端和排查用：同样是 items 空，'upstream_error' 是服务连不上，
+     没 note 才是「这个国家确实没库存」，两者不能给用户看同一句话。 */
+  const empty = function (note, detail) {
+    return json({ ok: true, items: [], note: note, detail: detail ? String(detail).slice(0, 160) : '' });
+  };
 
   let payload = null;
   try {
-    /* 上游慢就放弃，让大厅退回站内问卷，比挂着转圈强 */
+    /* 上游慢就放弃，让大厅退回站内问卷，比挂着转圈强。
+       阈值给 5.5 秒：2026-11-28 实测 CPX 端到端 1.7~5.2 秒，
+       原来 3 秒会把自己正常的响应砍断，表现为「大厅突然没卷」。 */
     const ac = new AbortController();
-    const timer = setTimeout(function () { ac.abort(); }, 3000);
+    const timer = setTimeout(function () { ac.abort(); }, 5500);
     try {
       const r = await fetch('https://live-api.cpx-research.com/api/get-surveys.php?' + qs.join('&'), {
         headers: { Accept: 'application/json' },
@@ -2240,25 +2246,26 @@ async function cpxSurveyList(request, env) {
       const text = await r.text();
       if (!r.ok) {
         console.error('cpx surveys upstream:', r.status, text.slice(0, 160));
-        return empty('upstream_error');
+        return empty('upstream_error', 'http ' + r.status);
       }
       try {
         payload = JSON.parse(text);
       } catch (e) {
         console.error('cpx surveys bad json:', text.slice(0, 160));
-        return empty('upstream_error');
+        return empty('upstream_error', 'bad json');
       }
     } finally {
       clearTimeout(timer);
     }
   } catch (e) {
-    console.error('cpx surveys fetch failed:', String((e && e.message) || e).slice(0, 160));
-    return empty('upstream_error');
+    const msg = String((e && e.message) || e);
+    console.error('cpx surveys fetch failed:', msg.slice(0, 160));
+    return empty('upstream_error', /abort/i.test(msg) ? 'timeout' : msg.slice(0, 60));
   }
 
   if (!payload || payload.status !== 'success') {
     console.error('cpx surveys status:', payload && payload.status);
-    return empty('upstream_error');
+    return empty('upstream_error', String((payload && (payload.status || payload.error)) || 'no payload'));
   }
 
   const list = Array.isArray(payload.surveys) ? payload.surveys : [];

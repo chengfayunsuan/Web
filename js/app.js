@@ -752,27 +752,84 @@
     /* 大厅优先摆外部问卷墙的真实库存——那些是真有钱的卷。
        TR 与 CPX 两份列表并行拉、合并展示；都拿不到（没开权限、上游抽风、
        当地确实没库存）再退回站内问卷，绝不留白屏。 */
+    /* 单家拉取：失败（非 200、ok=false、或上游超时返回的空列表）重试一次。
+       「成功但没有卷」不重试——那是真没库存，多打一次只会拖慢。 */
+    function pullWall(path) {
+      function once() { return getJSON(path); }
+      return once().then(function (r) {
+        var okRes = r.status === 200 && r.body && r.body.ok;
+        if (okRes && r.body.note !== 'upstream_error') return r;
+        return new Promise(function (res) { setTimeout(res, 700); }).then(once);
+      });
+    }
+
     function loadAll() {
-      Promise.all([getJSON('/api/surveys/tr'), getJSON('/api/surveys/cpx')]).then(function (res) {
+      Promise.all([pullWall('/api/surveys/tr'), pullWall('/api/surveys/cpx')]).then(function (res) {
         var items = [];
         var verify = false;
+        var dead = 0;
 
         res.forEach(function (r) {
-          if (r.status === 200 && r.body && r.body.ok) {
+          var okRes = r.status === 200 && r.body && r.body.ok;
+          if (okRes) {
+            if (r.body.note === 'upstream_error') dead++;
             (r.body.items || []).forEach(function (s) { items.push(s); });
           } else if (r.body && r.body.error === 'email_unverified') {
             verify = true;
+          } else {
+            dead++;
           }
         });
 
         if (verify) { needVerify(); return; }
         if (items.length) { all = items; afterLoad(); return; }
+        /* 两家都连不上 ≠ 没有问卷。说成「当前没有可参与的问卷」是在骗人，
+           用户会以为站里真没货，也不会想到再点一次。 */
+        if (dead === res.length) { wallDown(); return; }
         loadStation();
       });
+    }
+
+    function wallDown() {
+      document.querySelectorAll('.hl-sect').forEach(function (sec) { sec.hidden = true; });
+      if (count) count.textContent = '0';
+      if (!empty) return;
+      empty.hidden = false;
+      empty.innerHTML = IS_EN
+        ? '<p class="pg-empty__k">SURVEY SERVICE UNREACHABLE</p>' +
+          '<h2 class="pg-empty__t">Could not load surveys just now</h2>' +
+          '<p class="pg-empty__d">The survey providers did not answer in time. ' +
+          'Your account and balance are unaffected — try again.</p>' +
+          '<div class="pg-empty__a"><button class="btn btn--red" type="button" id="hlRetry">Try again</button>' +
+          '<a class="btn btn--ghost" href="/en/home">Back to account</a></div>'
+        : '<p class="pg-empty__k">SURVEY SERVICE UNREACHABLE</p>' +
+          '<h2 class="pg-empty__t">问卷服务这次没连上</h2>' +
+          '<p class="pg-empty__d">问卷商那边没在时限内回话，账户和余额都没受影响。' +
+          '点下面重新拉一次。</p>' +
+          '<div class="pg-empty__a"><button class="btn btn--red" type="button" id="hlRetry">重新拉取</button>' +
+          '<a class="btn btn--ghost" href="/home">回到账户首页</a></div>';
+      var b = document.getElementById('hlRetry');
+      if (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          b.textContent = IS_EN ? 'Loading…' : '拉取中…';
+          loadAll();
+        });
+      }
     }
     /* 默认就是「通过率 ↓」，进页面先点亮按钮，等数据回来再排 */
     paintTabs();
     loadAll();
+
+    var hlRefresh = document.getElementById('hlRefresh');
+    if (hlRefresh) {
+      hlRefresh.addEventListener('click', function () {
+        hlRefresh.disabled = true;
+        all = [];
+        loadAll();
+        setTimeout(function () { hlRefresh.disabled = false; }, 1500);
+      });
+    }
 
     /* 问卷墙是在新标签页里打开的。答完切回来，这一页还停在跳走前的余额和库存上，
        所以离开了 20 秒以上就静默重拉一次，让钱和可答卷自己跟上。 */
