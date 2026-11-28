@@ -1025,3 +1025,44 @@ html:not([data-theme]) body[data-accent="blue"] {
   .rv-tabs { margin: 18px 0 16px; }
   .rv-tabs .pg-tab { padding: 9px 14px; font-size: 12.5px; }
 }
+
+/* ============================================================
+   提现单（/admin/review）
+   withdrawals 与 orders 摊平成一张表，8 列
+   ============================================================ */
+
+.adm-tr--rv {
+  grid-template-columns:
+    88px 92px minmax(150px, 1.4fr) 80px 120px 80px minmax(100px, 1fr) 200px;
+}
+
+/* 两个按钮横排要 140 上下，操作列给 200；窄下来由媒体查询接管 */
+.adm-tr--rv .adm-acts {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.adm-tr--rv .adm-acts .btn {
+  width: auto;
+  min-width: 0;
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+@media (max-width: 860px) {
+  .adm-tr--rv { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+@media (max-width: 640px) {
+  .adm-tr--rv .adm-acts {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .adm-tr--rv .adm-acts .btn { width: auto; }
+}
