@@ -693,6 +693,12 @@
 
     if (f.name) input.name = f.name;
     if (f.maxlength) input.maxLength = f.maxlength;
+    /* 只读字段：后台审核弹窗用来展示收款账号、单号这类「只看不改」的信息，
+       选中就能复制，别让手滑改掉账号再打款 */
+    if (f.readonly) {
+      input.readOnly = true;
+      input.classList.add('is-ro');
+    }
     input.className = 'mo__i';
     wrap.appendChild(input);
 

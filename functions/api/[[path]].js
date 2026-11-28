@@ -3403,7 +3403,7 @@ async function ticketMine(request, env) {
 // 后台：工单列表
 async function adminTickets(env, url) {
   const status = String(url.searchParams.get('status') || 'all');
-  let sql = `SELECT t.id, t.uid, t.username, t.type, t.detail, t.status, t.reply, t.created_at, t.reviewed_at,
+  let sql = `SELECT t.id, t.uid, t.username, t.type, t.detail, t.status, t.reply, t.note, t.created_at, t.reviewed_at,
     u.role AS userRole, u.status AS userStatus, u.fc_units, u.fc_frozen, u.level
     FROM tickets t LEFT JOIN users u ON u.id = t.uid`;
   const args = [];
@@ -3433,10 +3433,12 @@ async function adminTicketDecide(request, env, admin) {
     return json({ ok: false, error: 'bad_request' }, 400);
   }
   const reply = String(body.reply || '').trim().slice(0, 1000);
+  /* note 是后台内部备注，只给管理员看；reply 才是回给用户的话，两者分开存 */
+  const note = String(body.note || '').trim().slice(0, 300);
   const reviewedAt = action === 'closed' ? "datetime('now','+8 hours')" : 'NULL';
   await env.DB.prepare(
-    `UPDATE tickets SET status = ?, reply = ?, reviewed_at = ${reviewedAt} WHERE id = ?`
-  ).bind(action, reply, id).run();
+    `UPDATE tickets SET status = ?, reply = ?, note = ?, reviewed_at = ${reviewedAt} WHERE id = ?`
+  ).bind(action, reply, note, id).run();
   return json({ ok: true });
 }
 
@@ -4877,13 +4879,18 @@ async function adminOrderDecide(request, env) {
     return json({ ok: false, error: 'bad_request' }, 400);
   }
 
+  /* 管理员手工填的兑换码：填了就用它，不填才去码池捞。
+     和备注是两个独立字段：码给用户，备注只留在后台。 */
+  const codeInput = String((body && body.code) || '').trim().slice(0, 200);
+  const orderNote = String((body && body.note) || '').trim().slice(0, 300);
+
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!order) return json({ ok: false, error: 'not_found' }, 404);
   if (order.status === action) return json({ ok: true });
 
   if (action === 'paid') {
     /* 兑换码商品：审核通过这一刻才从码池取码，之前用户看不到码 */
-    let code = order.code || '';
+    let code = codeInput || order.code || '';
     const item = order.item_id
       ? await env.DB.prepare('SELECT kind FROM store_items WHERE id = ?').bind(order.item_id).first()
       : null;
@@ -4897,7 +4904,8 @@ async function adminOrderDecide(request, env) {
     }
 
     const stmts = [
-      env.DB.prepare("UPDATE orders SET status = 'paid', code = ? WHERE id = ?").bind(code, id)
+      env.DB.prepare("UPDATE orders SET status = 'paid', code = ?, memo = ? WHERE id = ?")
+        .bind(code, orderNote || order.memo || '', id)
     ];
 
     /* 刚取出的码标记为已用；老订单若已有码则不动 */
@@ -4936,8 +4944,8 @@ async function adminOrderDecide(request, env) {
       `INSERT INTO fc_ledger (uid, delta, balance, kind, ref, memo) VALUES (?, ?, ?, 'admin_adjust', ?, ?)`
     ).bind(user.id, order.price_units, next, order.sn, '兑换退款 · ' + order.item_title),
     env.DB.prepare(
-      "UPDATE orders SET status = 'refunded' WHERE id = ?"
-    ).bind(id),
+      "UPDATE orders SET status = 'refunded', memo = ? WHERE id = ?"
+    ).bind(orderNote || order.memo || '', id),
     env.DB.prepare(
       `INSERT INTO messages (uid, kind, title, body) VALUES (?, 'system', ?, ?)`
     ).bind(order.uid, '兑换已退款', '「' + order.item_title + '」已退款 ' + formatFc(order.price_units) + ' XD，金额已回到可用余额。')

@@ -441,7 +441,7 @@
       ship.type = 'button';
       ship.className = 'adm-sv__op is-on';
       ship.textContent = '发货';
-      ship.addEventListener('click', function () { decide(o, 'paid'); });
+      ship.addEventListener('click', function () { openDecide(o, 'paid'); });
       ops.appendChild(ship);
     }
 
@@ -450,10 +450,7 @@
       rf.type = 'button';
       rf.className = 'adm-sv__op';
       rf.textContent = '退款';
-      rf.addEventListener('click', function () {
-        if (!window.confirm('退款会把 ' + trimNum(o.price) + ' 退回用户余额并作废卡密，确定？')) return;
-        decide(o, 'refunded');
-      });
+      rf.addEventListener('click', function () { openDecide(o, 'refunded'); });
       ops.appendChild(rf);
     }
 
@@ -461,6 +458,67 @@
     row.appendChild(ops);
 
     return row;
+  }
+
+  /* 发货与退款都走弹窗：
+     发货时手工兑换码单独一栏（留空才从码池捞），备注另一栏、只留后台；
+     退款时把金额和「作废卡密」写清楚再确认。 */
+  function openDecide(o, action) {
+    var paid = action === 'paid';
+
+    CF.modal({
+      kicker: paid ? 'DELIVER' : 'REFUND',
+      title: (paid ? '确认发货 · ' : '确认退款 · ') + o.username,
+      desc: paid
+        ? '「' + o.title + '」· 单号 ' + o.sn + ' · ' + trimNum(o.price) + ' XD。填了兑换码就用它，留空自动从码池取。'
+        : '退款会把 ' + trimNum(o.price) + ' XD 退回用户余额，已发出的卡密一并作废。',
+      fields: paid ? [
+        {
+          name: 'code',
+          label: '兑换码（留空自动从码池取）',
+          type: 'text',
+          value: o.code || '',
+          maxlength: 200,
+          placeholder: '例如：XXXX-XXXX-XXXX'
+        },
+        {
+          name: 'note',
+          label: '备注（内部，用户看不到）',
+          type: 'text',
+          value: o.memo || '',
+          maxlength: 300,
+          placeholder: '例如：手动从备用码池取，已核对'
+        }
+      ] : [
+        {
+          name: 'note',
+          label: '退款说明（内部，会写进订单备注）',
+          type: 'text',
+          value: o.memo || '',
+          maxlength: 300,
+          placeholder: '例如：卡密缺货，用户同意退款'
+        }
+      ],
+      submitText: paid ? '确认发货' : '确认退款',
+      onSubmit: function (v, api) {
+        api.setBusy(true);
+        postJSON('/api/admin/orders/decide', {
+          id: o.id,
+          action: action,
+          code: v.code || '',
+          note: v.note || ''
+        }).then(function (r) {
+          if (r.body && r.body.ok) {
+            api.close();
+            say(paid ? '已审核发货，兑换码已站内通知用户' : '已退款');
+            loadOrders();
+          } else {
+            api.setBusy(false);
+            api.setError('操作失败：' + ((r.body && r.body.error) || '网络错误'));
+          }
+        });
+      }
+    });
   }
 
   function decide(o, action) {

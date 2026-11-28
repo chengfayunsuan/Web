@@ -523,21 +523,16 @@
         var acts = document.createElement('span');
         acts.className = 'adm-acts';
 
-        /* 备注列：待审给输入框，审完就显示当初写的那句。
-           备注会跟着打款/驳回一起写进 withdrawals.review_note，
-           也进流水 memo，日后核对有据可查。 */
+        /* 备注列：点打款/驳回时在弹窗里填，审完这里显示当初写的那句。
+           备注会写进 withdrawals.review_note，也进流水 memo。 */
         var note = document.createElement('span');
         note.className = 'adm-note';
-        var noteInput = null;
 
         if (w.status === 'pending') {
-          noteInput = document.createElement('input');
-          noteInput.type = 'text';
-          noteInput.className = 'adm-note__i';
-          noteInput.maxLength = 120;
-          noteInput.placeholder = '备注';
-          noteInput.value = w.reviewNote || '';
-          note.appendChild(noteInput);
+          var noteHint = document.createElement('span');
+          noteHint.className = 'adm-sub';
+          noteHint.textContent = '审核时填';
+          note.appendChild(noteHint);
         } else {
           note.className = 'adm-note adm-note__t';
           note.textContent = w.reviewNote || '—';
@@ -548,17 +543,13 @@
           ok.className = 'btn btn--red btn--s';
           ok.type = 'button';
           ok.textContent = '通过打款';
-          ok.addEventListener('click', function () {
-            decide(w.id, 'paid', noteInput ? noteInput.value : '');
-          });
+          ok.addEventListener('click', function () { openDecide(w, 'paid'); });
 
           var no = document.createElement('button');
           no.className = 'btn btn--ghost btn--s';
           no.type = 'button';
           no.textContent = '驳回退回';
-          no.addEventListener('click', function () {
-            decide(w.id, 'rejected', noteInput ? noteInput.value : '');
-          });
+          no.addEventListener('click', function () { openDecide(w, 'rejected'); });
 
           acts.appendChild(ok);
           acts.appendChild(no);
@@ -576,6 +567,55 @@
       });
 
       empty.hidden = shown.length > 0;
+    }
+
+    /* 打款/驳回都走弹窗：先把收款账号摆到眼前，确认完再动钱。
+       账号只读，选中就能复制；备注单独一栏，内部可见，同时进流水 memo。 */
+    function openDecide(w, action) {
+      var paid = action === 'paid';
+      var amount = trimNum(w.amount) + ' XD';
+      var channel = CHANNEL[w.channel] || w.channel || '未知渠道';
+
+      CF.modal({
+        kicker: paid ? 'PAY OUT' : 'REJECT',
+        title: (paid ? '确认打款 · ' : '驳回提现 · ') + (w.username || ('UID ' + w.uid)),
+        desc: paid
+          ? '按下面的账号打款 ' + amount + '（' + channel + '），打完再回来点确认。确认后冻结额度直接划走。'
+          : '驳回后 ' + amount + ' 会退回用户可用余额。请把理由写清楚，方便日后核对。',
+        fields: [
+          {
+            name: 'account',
+            label: '收款账号（' + channel + '）',
+            value: w.account || '',
+            readonly: true,
+            hint: '只读，选中即可复制；打款前核对姓名与账号一致'
+          },
+          {
+            name: 'note',
+            label: paid ? '备注（内部，用户看不到，会写进流水）' : '驳回说明（内部，会写进流水）',
+            type: 'text',
+            value: w.reviewNote || '',
+            maxlength: 120,
+            placeholder: paid ? '例如：支付宝已转，回单号 xx' : '例如：收款账号与实名不一致'
+          }
+        ],
+        submitText: paid ? '确认已打款' : '确认驳回',
+        onSubmit: function (v, api) {
+          api.setBusy(true);
+          postJSON('/api/admin/withdrawals/decide', {
+            id: w.id, action: action, note: v.note || ''
+          }).then(function (r) {
+            if (r.body && r.body.ok) {
+              api.close();
+              say(paid ? '已通过打款' : '已驳回，冻结退回余额');
+              load();
+            } else {
+              api.setBusy(false);
+              api.setError('操作失败：' + ((r.body && r.body.error) || '网络错误'));
+            }
+          });
+        }
+      });
     }
 
     function decide(id, action, note) {
@@ -675,19 +715,65 @@
       return s;
     }
 
+    /* 处理工单：回复会发给用户，备注只留在后台，两个输入框分开 */
     function decide(t, done) {
-      done.disabled = true;
-      postJSON('/api/admin/tickets/decide', {
-        id: t.id,
-        action: t.status === 'open' ? 'closed' : 'open'
-      }).then(function (r) {
+      if (t.status === 'open') {
+        CF.modal({
+          kicker: 'TICKET',
+          title: '处理工单 #' + t.id,
+          desc: '回复内容会显示给用户；内部备注只留在后台，用户看不到。',
+          fields: [
+            {
+              name: 'reply',
+              label: '回复用户（可不填）',
+              type: 'textarea',
+              rows: 3,
+              value: t.reply || '',
+              maxlength: 1000,
+              placeholder: '例如：已补发 3 XD，请刷新余额查看'
+            },
+            {
+              name: 'note',
+              label: '内部备注',
+              type: 'text',
+              value: t.note || '',
+              maxlength: 300,
+              placeholder: '例如：已手工补款，等用户确认'
+            }
+          ],
+          submitText: '标记已处理',
+          onSubmit: function (v, api) {
+            api.setBusy(true);
+            postJSON('/api/admin/tickets/decide', {
+              id: t.id,
+              action: 'closed',
+              reply: v.reply || '',
+              note: v.note || ''
+            }).then(function (r) {
+              if (r.body && r.body.ok) {
+                api.close();
+                say('已处理');
+                closeSheet();
+                load();
+              } else {
+                api.setBusy(false);
+                api.setError('操作失败：' + ((r.body && r.body.error) || '网络错误'));
+              }
+            });
+          }
+        });
+        return;
+      }
+
+      if (done) done.disabled = true;
+      postJSON('/api/admin/tickets/decide', { id: t.id, action: 'open' }).then(function (r) {
         if (r.body && r.body.ok) {
-          say(t.status === 'open' ? '已标记处理' : '已重开');
+          say('已重开');
           closeSheet();
           load();
         } else {
           say('操作失败：' + (r.body && r.body.error || '网络错误'));
-          done.disabled = false;
+          if (done) done.disabled = false;
         }
       });
     }
